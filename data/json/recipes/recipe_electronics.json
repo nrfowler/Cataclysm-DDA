@@ -2311,6 +2311,48 @@
   ]
 },{
   "type" : "recipe",
+  "result": "elec_chainsaw_mill_off",
+  "category": "CC_ELECTRONIC",
+  "subcategory": "CSC_ELECTRONIC_TOOLS",
+  "skill_used": "electronics",
+  "difficulty": 1,
+  "time": 20000,
+  "reversible": true,
+  "decomp_learn": 4,
+  "autolearn": false,
+  "book_learn": [["textbook_mechanics", 4] , ["textbook_carpentry", 4] , ["advanced_electronics", 3] , ["textbook_electronics", 3]],
+  "qualities":[
+    {"id":"SCREW","level":1,"amount":1},
+    {"id":"WRENCH","level":1,"amount":1}
+  ],
+  "tools": [],
+  "components": [
+    [["chainsaw_mill_attachment", 1]],
+    [["elec_chainsaw_off", 1]]
+  ]
+},{
+  "type" : "recipe",
+  "result": "chainsaw_mill_off",
+  "category": "CC_ELECTRONIC",
+  "subcategory": "CSC_ELECTRONIC_TOOLS",
+  "skill_used": "electronics",
+  "difficulty": 1,
+  "time": 20000,
+  "reversible": true,
+  "decomp_learn": 4,
+  "autolearn": false,
+  "book_learn": [["textbook_mechanics", 4] , ["textbook_carpentry", 4] , ["advanced_electronics", 3] , ["textbook_electronics", 3]],
+  "qualities":[
+    {"id":"SCREW","level":1,"amount":1},
+    {"id":"WRENCH","level":1,"amount":1}
+  ],
+  "tools": [],
+  "components": [
+    [["chainsaw_mill_attachment", 1]],
+    [["chainsaw_off", 1]]
+  ]
+},{
+  "type" : "recipe",
   "result": "remotevehcontrol",
   "category": "CC_ELECTRONIC",
   "subcategory": "CSC_ELECTRONIC_TOOLS",
