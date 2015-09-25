@@ -2021,6 +2021,22 @@
     "qualities": [["AXE", 2]],
     "use_action": "ELEC_CHAINSAW_ON"
   },{
+    "id": "chainsaw_mill_attachment",
+    "type": "GENERIC",
+    "symbol": ")",
+    "color": "light_gray",
+    "name": "Chainsaw mill attachment and conversion kit",
+    "name_plural": "Chainsaw mill attachment and conversion kit",
+    "category": "other",
+    "description": "A kit with a saw mill attachment and accessories for converting any chainsaw into a saw mill for making planks from logs.",
+    "price": 12000,
+    "weight": 2000,
+    "volume": 11,
+    "bashing": -2,
+    "cutting": 0,
+    "to_hit": -2,
+    "material": ["plastic", "steel"]
+  },{
     "id": "carver_off",
     "type": "TOOL",
     "symbol": "/",
