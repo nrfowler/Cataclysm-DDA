@@ -101,6 +101,10 @@ public:
     int chainsaw_on         ( player*, item*, bool, const tripoint& );
     int elec_chainsaw_off   ( player*, item*, bool, const tripoint& );
     int elec_chainsaw_on    ( player*, item*, bool, const tripoint& );
+	int chainsaw_mill_off   ( player*, item*, bool, const tripoint& );
+    int chainsaw_mill_on    ( player*, item*, bool, const tripoint& );
+    int elec_chainsaw_mill_off( player*, item*, bool, const tripoint& );
+    int elec_chainsaw_mill_on( player*, item*, bool, const tripoint& );
     int cs_lajatang_off     ( player*, item*, bool, const tripoint& );
     int cs_lajatang_on      ( player*, item*, bool, const tripoint& );
     int carver_off          ( player*, item*, bool, const tripoint& );
