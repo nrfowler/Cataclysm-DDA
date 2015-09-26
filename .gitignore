@@ -20,6 +20,7 @@ CataclysmWin.cscope_file_list
 CataclysmWin.depend
 CataclysmWin.layout
 *.exe
+*.exe.stackdump
 *.dll
 WinDepend/
 *.7z
