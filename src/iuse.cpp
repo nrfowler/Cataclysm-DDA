@@ -4043,6 +4043,23 @@ int iuse::elec_chainsaw_off(player *p, item *it, bool, const tripoint& )
         _("You flip the switch, but nothing happens."));
 }
 
+int iuse::chainsaw_mill_off(player *p, item *it, bool, const tripoint& )
+{
+    return toolweapon_off(p, it,
+        false,
+        rng(0, 10) - it->damage > 5 && !p->is_underwater(),
+        20, _("With a roar, the chainsaw leaps to life!"),
+        _("You yank the cord, but nothing happens."));
+}
+
+int iuse::elec_chainsaw_mill_off(player *p, item *it, bool, const tripoint& )
+{
+    return toolweapon_off(p, it,
+        false,
+        rng(0, 10) - it->damage > 5 && !p->is_underwater(),
+        20, _("With a roar, the electric chainsaw leaps to life!"),
+        _("You flip the switch, but nothing happens."));
+}
 int iuse::cs_lajatang_off(player *p, item *it, bool, const tripoint& )
 {
     return toolweapon_off(p, it,
@@ -4124,6 +4141,19 @@ int iuse::elec_chainsaw_on(player *p, item *it, bool t, const tripoint& )
         15, 12, _("Your electric chainsaw rumbles."));
 }
 
+int iuse::chainsaw_mill_on(player *p, item *it, bool t, const tripoint& )
+{
+    return toolweapon_on(p, it, t, _("chainsaw mill"),
+        false,
+        15, 12, _("Your chainsaw rumbles."));
+}
+
+int iuse::elec_chainsaw_mill_on(player *p, item *it, bool t, const tripoint& )
+{
+    return toolweapon_on(p, it, t, _("electric chainsaw mill"),
+        false,
+        15, 12, _("Your electric chainsaw rumbles."));
+}
 int iuse::cs_lajatang_on(player *p, item *it, bool t, const tripoint& )
 {
     return toolweapon_on(p, it, t, _("chainsaw lajatang"),

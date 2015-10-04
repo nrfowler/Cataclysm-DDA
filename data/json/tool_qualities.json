@@ -61,6 +61,10 @@
         "name" : "tree cutting"
     },{
         "type" : "tool_quality",
+        "id" : "MILL",
+        "name" : "milling"
+    },{
+        "type" : "tool_quality",
         "id" : "DIG",
         "name" : "digging"
     },{

@@ -1944,7 +1944,7 @@
     "turns_per_charge": 0,
     "ammo": "gasoline",
     "revert_to": "null",
-    "use_action": "CHAINSAW_OFF"
+    "use_action": "CHAINSAW__MILL_OFF"
   },
 
   {
@@ -2019,7 +2019,7 @@
     "ammo": "battery",
     "revert_to": "elec_chainsaw_mill_off",
     "qualities": [["AXE", 2]],
-    "use_action": "ELEC_CHAINSAW_ON"
+    "use_action": "ELEC_CHAINSAW_MILL_ON"
   },{
     "id": "chainsaw_mill_attachment",
     "type": "GENERIC",

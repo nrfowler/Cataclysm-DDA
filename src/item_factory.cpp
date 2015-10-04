@@ -216,6 +216,10 @@ void Item_factory::init()
     iuse_function_list["CHAINSAW_ON"] = &iuse::chainsaw_on;
     iuse_function_list["ELEC_CHAINSAW_OFF"] = &iuse::elec_chainsaw_off;
     iuse_function_list["ELEC_CHAINSAW_ON"] = &iuse::elec_chainsaw_on;
+    iuse_function_list["CHAINSAW__MILL_OFF"] = &iuse::chainsaw_off;
+    iuse_function_list["CHAINSAW_MILL_ON"] = &iuse::chainsaw_on;
+    iuse_function_list["ELEC_CHAINSAW_MILL_OFF"] = &iuse::elec_chainsaw_off;
+    iuse_function_list["ELEC_CHAINSAW_MILL_ON"] = &iuse::elec_chainsaw_on;
     iuse_function_list["CS_LAJATANG_OFF"] = &iuse::cs_lajatang_off;
     iuse_function_list["CS_LAJATANG_ON"] = &iuse::cs_lajatang_on;
     iuse_function_list["CARVER_OFF"] = &iuse::carver_off;
