@@ -1,13 +1,9 @@
 #include "color.h"
-#include "cursesdef.h"
-#include "options.h"
-#include "rng.h"
 #include "output.h"
 #include "debug.h"
 #include "input.h"
-#include "worldfactory.h"
 #include "path_info.h"
-#include "mapsharing.h"
+#include "cata_utility.h"
 #include "filesystem.h"
 #include "ui.h"
 #include "translations.h"
@@ -78,6 +74,7 @@ color_id color_manager::name_to_id( const std::string &name ) const
 {
     auto iter = name_map.find( name );
     if( iter == name_map.end() ) {
+        DebugLog( D_ERROR, DC_ALL) << "couldn't parse color: " << name ;
         return def_c_unset;
     }
 
@@ -533,7 +530,6 @@ nc_color color_from_string(const std::string &color)
         return col;
     }
 
-    debugmsg("color_from_string: couldn't parse color: %s", color.c_str());
     return c_unset;
 }
 
@@ -615,7 +611,6 @@ std::list<std::pair<std::string, std::string>> get_note_color_names()
     return color_list;
 }
 
-
 void color_manager::clear()
 {
     name_map.clear();
@@ -653,7 +648,7 @@ void color_manager::show_gui()
                                    1 + iOffsetX);
     WINDOW_PTR w_colorsptr( w_colors );
 
-    draw_border(w_colors_border);
+    draw_border( w_colors_border, BORDER_COLOR, _( " COLOR MANAGER " ) );
     mvwputch(w_colors_border, 3,  0, c_ltgray, LINE_XXXO); // |-
     mvwputch(w_colors_border, 3, 79, c_ltgray, LINE_XOXX); // -|
 
@@ -668,8 +663,6 @@ void color_manager::show_gui()
             mvwputch(w_colors_header, 3, iCol, c_ltgray, LINE_XOXO);
         }
     }
-
-    mvwprintz(w_colors_border, 0, 32, c_ltred, _(" COLOR MANAGER "));
     wrefresh(w_colors_border);
 
     int tmpx = 0;
@@ -721,8 +714,8 @@ void color_manager::show_gui()
 
         calcStartPos(iStartPos, iCurrentLine, iContentHeight, iMaxColors);
 
-        //Draw Scrollbar
         draw_scrollbar(w_colors_border, iCurrentLine, iContentHeight, iMaxColors, 5);
+        wrefresh(w_colors_border);
 
         auto iter = name_color_map.begin();
         std::advance( iter, iStartPos );
@@ -911,25 +904,9 @@ bool color_manager::save_custom()
 {
     const auto savefile = FILENAMES["custom_colors"];
 
-    try {
-        std::ofstream fout;
-        fout.exceptions(std::ios::badbit | std::ios::failbit);
-
-        fopen_exclusive(fout, savefile.c_str());
-        if(!fout.is_open()) {
-            return true; //trick game into thinking it was saved
-        }
-
+    return write_to_file_exclusive( savefile, [&]( std::ostream &fout ) {
         fout << serialize();
-        fclose_exclusive(fout, savefile.c_str());
-        return true;
-
-    } catch(std::ios::failure &) {
-        popup(_("Failed to save custom colors to %s"), savefile.c_str());
-        return false;
-    }
-
-    return false;
+    }, _( "custom colors" ) );
 }
 
 void color_manager::load_custom(const std::string &sPath)

@@ -22,6 +22,7 @@
 #include <iterator>
 
 extern input_context get_default_mode_input_context();
+extern bool tile_iso;
 
 void parse_keymap( std::istream &keymap_txt, std::map<char, action_id> &kmap,
                    std::set<action_id> &unbound_keymap );
@@ -112,6 +113,8 @@ std::string action_ident( action_id act )
     switch( act ) {
         case ACTION_PAUSE:
             return "pause";
+        case ACTION_TIMEOUT:
+            return "TIMEOUT";
         case ACTION_MOVE_N:
             return "UP";
         case ACTION_MOVE_NE:
@@ -204,6 +207,8 @@ std::string action_ident( action_id act )
             return "reload";
         case ACTION_UNLOAD:
             return "unload";
+        case ACTION_MEND:
+            return "mend";
         case ACTION_THROW:
             return "throw";
         case ACTION_FIRE:
@@ -282,14 +287,66 @@ std::string action_ident( action_id act )
             return "toggle_sidebar_style";
         case ACTION_TOGGLE_FULLSCREEN:
             return "toggle_fullscreen";
+        case ACTION_TOGGLE_PIXEL_MINIMAP:
+            return "toggle_pixel_minimap";
         case ACTION_ACTIONMENU:
             return "action_menu";
         case ACTION_ITEMACTION:
             return "item_action_menu";
+        case ACTION_SELECT:
+            return "SELECT";
+        case ACTION_SEC_SELECT:
+            return "SEC_SELECT";
         case ACTION_NULL:
             return "null";
         default:
             return "unknown";
+    }
+}
+
+bool can_action_change_worldstate( const action_id act )
+{
+    switch( act ) {
+        // Shift view
+        case ACTION_CENTER:
+        case ACTION_SHIFT_N:
+        case ACTION_SHIFT_NE:
+        case ACTION_SHIFT_E:
+        case ACTION_SHIFT_SE:
+        case ACTION_SHIFT_S:
+        case ACTION_SHIFT_SW:
+        case ACTION_SHIFT_W:
+        case ACTION_SHIFT_NW:
+        // Environment Interaction
+        case ACTION_LOOK:
+        case ACTION_LIST_ITEMS:
+        case ACTION_ZONES:
+        // Long-term / special actions
+        case ACTION_SAVE:
+        case ACTION_QUICKSAVE:
+        case ACTION_QUICKLOAD:
+        case ACTION_QUIT:
+        // Info Screens
+        case ACTION_PL_INFO:
+        case ACTION_MAP:
+        case ACTION_MISSIONS:
+        case ACTION_KILLS:
+        case ACTION_FACTIONS:
+        case ACTION_MORALE:
+        case ACTION_MESSAGES:
+        case ACTION_HELP:
+        // Debug Functions
+        case ACTION_TOGGLE_SIDEBAR_STYLE:
+        case ACTION_TOGGLE_FULLSCREEN:
+        case ACTION_DEBUG:
+        case ACTION_DISPLAY_SCENT:
+        case ACTION_ZOOM_OUT:
+        case ACTION_ZOOM_IN:
+        case ACTION_TOGGLE_PIXEL_MINIMAP:
+        case ACTION_TIMEOUT:
+            return false;
+        default:
+            return true;
     }
 }
 
@@ -324,52 +381,6 @@ action_id look_up_action( std::string ident )
         }
     }
     return ACTION_NULL;
-}
-
-void get_direction( int &x, int &y, char ch )
-{
-    x = 0;
-    y = 0;
-    action_id act = action_from_key( ch );
-
-    switch( act ) {
-        case ACTION_MOVE_NW:
-            x = -1;
-            y = -1;
-            return;
-        case ACTION_MOVE_NE:
-            x = 1;
-            y = -1;
-            return;
-        case ACTION_MOVE_W:
-            x = -1;
-            return;
-        case ACTION_MOVE_S:
-            y = 1;
-            return;
-        case ACTION_MOVE_N:
-            y = -1;
-            return;
-        case ACTION_MOVE_E:
-            x = 1;
-            return;
-        case ACTION_MOVE_SW:
-            x = -1;
-            y = 1;
-            return;
-        case ACTION_MOVE_SE:
-            x = 1;
-            y = 1;
-            return;
-        case ACTION_PAUSE:
-        case ACTION_PICKUP:
-            x = 0;
-            y = 0;
-            return;
-        default:
-            x = -2;
-            y = -2;
-    }
 }
 
 // (Press X (or Y)|Try) to Z
@@ -428,7 +439,7 @@ long hotkey_for_action( action_id action )
 bool can_butcher_at( const tripoint &p )
 {
     // TODO: unify this with game::butcher
-    const int factor = g->u.butcher_factor();
+    const int factor = g->u.max_quality( quality_id( "BUTCHER" ) );
     auto items = g->m.i_at( p );
     bool has_item = false;
     bool has_corpse = false;
@@ -501,10 +512,10 @@ bool can_interact_at( action_id action, const tripoint &p )
 {
     switch( action ) {
         case ACTION_OPEN:
-            return g->m.open_door( p, !g->m.is_outside( g->u.pos3() ), true );
+            return g->m.open_door( p, !g->m.is_outside( g->u.pos() ), true );
             break;
         case ACTION_CLOSE:
-            return g->m.close_door( p, !g->m.is_outside( g->u.pos3() ), true );
+            return g->m.close_door( p, !g->m.is_outside( g->u.pos() ), true );
             break;
         case ACTION_BUTCHER:
             return can_butcher_at( p );
@@ -541,26 +552,20 @@ action_id handle_action_menu()
     std::map<action_id, int> action_weightings;
 
     // Check if we're in a potential combat situation, if so, sort a few actions to the top.
-    if(!g->u.get_hostile_creatures().empty()) {
+    if( !g->u.get_hostile_creatures().empty() ) {
         // Only prioritize movement options if we're not driving.
-        if(!g->u.controlling_vehicle) {
+        if( !g->u.controlling_vehicle ) {
             action_weightings[ACTION_TOGGLE_MOVE] = 400;
         }
         // Only prioritize fire weapon options if we're wielding a ranged weapon.
-        if(g->u.weapon.is_gun() || g->u.weapon.has_flag( "REACH_ATTACK" ) ) {
+        if( g->u.weapon.is_gun() || g->u.weapon.has_flag( "REACH_ATTACK" ) ) {
             action_weightings[ACTION_FIRE] = 350;
         }
     }
 
     // If we're already running, make it simple to toggle running to off.
-    if(g->u.move_mode != "walk") {
+    if( g->u.move_mode != "walk" ) {
         action_weightings[ACTION_TOGGLE_MOVE] = 300;
-    }
-
-    // If our wielded item is a gun, doesn't have full ammo, and we do have the ammo,
-    // prioritize reloading.
-    if(g->u.can_reload()) {
-        action_weightings[ACTION_RELOAD] = 250;
     }
 
     // Check if we're on a vehicle, if so, vehicle controls should be top.
@@ -694,6 +699,9 @@ action_id handle_action_menu()
 #ifndef TILES
             REGISTER_ACTION( ACTION_TOGGLE_FULLSCREEN );
 #endif
+#ifdef TILES
+            REGISTER_ACTION( ACTION_TOGGLE_PIXEL_MINIMAP );
+#endif // TILES
             REGISTER_ACTION( ACTION_DISPLAY_SCENT );
             REGISTER_ACTION( ACTION_TOGGLE_DEBUG_MODE );
         } else if( category == "interact" ) {
@@ -807,6 +815,7 @@ bool choose_direction( const std::string &message, int &x, int &y )
 bool choose_direction( const std::string &message, tripoint &offset, bool allow_vertical )
 {
     input_context ctxt( "DEFAULTMODE" );
+    ctxt.set_iso( true );
     ctxt.register_directions();
     ctxt.register_action( "pause" );
     ctxt.register_action( "QUIT" );
@@ -817,11 +826,11 @@ bool choose_direction( const std::string &message, tripoint &offset, bool allow_
     }
 
     //~ appended to "Close where?" "Pry where?" etc.
-    std::string query_text = message + _( " (Direction button)" );
-    mvwprintw( g->w_terrain, 0, 0, "%s", query_text.c_str() );
-    wrefresh( g->w_terrain );
+    const std::string query_text = message + _( " (Direction button)" );
+    popup( query_text, PF_NO_WAIT_ON_TOP );
+
     const std::string action = ctxt.handle_input();
-    if( input_context::get_direction( offset.x, offset.y, action ) ) {
+    if( ctxt.get_direction( offset.x, offset.y, action ) ) {
         offset.z = 0;
         return true;
     } else if( action == "pause" ) {
@@ -853,7 +862,7 @@ bool choose_adjacent( std::string message, tripoint &p, bool allow_vertical )
     if( !choose_direction( message, p, allow_vertical ) ) {
         return false;
     }
-    p += g->u.pos3();
+    p += g->u.pos();
     return true;
 }
 

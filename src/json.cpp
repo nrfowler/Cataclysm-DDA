@@ -22,7 +22,7 @@ bool is_whitespace(char ch)
 }
 
 // for parsing \uxxxx escapes
-std::string utf16_to_utf8(unsigned ch)
+std::string utf16_to_utf8(uint32_t ch)
 {
     char out[5];
     char *buf = out;
@@ -318,27 +318,6 @@ JsonObject JsonObject::get_object(const std::string &name)
     }
     jsin->seek(pos);
     return jsin->get_object();
-}
-
-std::set<std::string> JsonObject::get_tags(const std::string &name)
-{
-    std::set<std::string> ret;
-    int pos = positions[name];
-    if (pos <= start) {
-        return ret; // empty set
-    }
-    jsin->seek(pos);
-    // allow single string as tag
-    if (jsin->test_string()) {
-        ret.insert(jsin->get_string());
-        return ret;
-    }
-    // otherwise assume it's an array and error if it isn't.
-    JsonArray jsarr = jsin->get_array();
-    while (jsarr.has_more()) {
-        ret.insert(jsarr.next_string());
-    }
-    return ret;
 }
 
 /* non-fatal member existence and type testing */
@@ -1006,7 +985,7 @@ std::string JsonIn::get_string()
                 // insert the appropriate unicode character in utf8
                 // TODO: verify that unihex is in fact 4 hex digits.
                 char **endptr = 0;
-                unsigned u = (unsigned)strtoul(unihex, endptr, 16);
+                uint32_t u = (uint32_t)strtoul(unihex, endptr, 16);
                 try {
                     s += utf16_to_utf8(u);
                 } catch( const std::exception &err ) {
@@ -1317,6 +1296,16 @@ bool JsonIn::read(char &c)
 bool JsonIn::read(signed char &c)
 {
     if (!test_number()) {
+        return false;
+    }
+    // TODO: test for overflow
+    c = get_int();
+    return true;
+}
+
+bool JsonIn::read( unsigned char &c )
+{
+    if( !test_number() ) {
         return false;
     }
     // TODO: test for overflow

@@ -8,16 +8,13 @@
   "skills_required": [ "cooking", 5 ],
   "difficulty": 1,
   "time": 90000,
-  "reversible": false,
-  "autolearn": false,
   "book_learn": [[ "book_potioncraft", 0 ]],
-  "qualities":[{"id":"BOIL","level":2,"amount":1}],
+  "qualities":[{"id":"CHEM","level":2}],
   "tools": [
     [ [ "book_potioncraft", -1 ] ],
-    [ [ "chemistry_set", 10 ] ],
     [
       [ "hotplate", 10 ],
-      [ "char_smoker", 1 ],
+      [ "char_smoker", 10 ],
       [ "toolset", 10 ],
       [ "fire", -1 ]
     ]
@@ -55,16 +52,13 @@
   "skills_required": [ "cooking", 5 ],
   "difficulty": 2,
   "time": 90000,
-  "reversible": false,
-  "autolearn": false,
   "book_learn": [[ "book_potioncraft", 1 ]],
-  "qualities":[{"id":"BOIL","level":2,"amount":1}],
+  "qualities":[{"id":"CHEM","level":2}],
   "tools": [
     [ [ "book_potioncraft", -1 ] ],
-    [ [ "chemistry_set", 10 ] ],
     [
       [ "hotplate", 10 ],
-      [ "char_smoker", 1 ],
+      [ "char_smoker", 10 ],
       [ "toolset", 10 ],
       [ "fire", -1 ]
     ]
@@ -102,16 +96,13 @@
   "skills_required": [ "cooking", 5 ],
   "difficulty": 3,
   "time": 90000,
-  "reversible": false,
-  "autolearn": false,
   "book_learn": [[ "book_potioncraft", 2 ]],
-  "qualities":[{"id":"BOIL","level":2,"amount":1}],
+  "qualities":[{"id":"CHEM","level":2}],
   "tools": [
     [ [ "book_potioncraft", -1 ] ],
-    [ [ "chemistry_set", 10 ] ],
     [
       [ "hotplate", 10 ],
-      [ "char_smoker", 1 ],
+      [ "char_smoker", 10 ],
       [ "toolset", 10 ],
       [ "fire", -1 ]
     ]
@@ -152,16 +143,13 @@
   "skills_required": [ "cooking", 5 ],
   "difficulty": 4,
   "time": 90000,
-  "reversible": false,
-  "autolearn": false,
   "book_learn": [[ "book_potioncraft", 3 ]],
-  "qualities":[ {"id":"BOIL","level":2,"amount":1}],
+  "qualities":[ {"id":"CHEM","level":2}],
   "tools": [
     [ [ "book_potioncraft", -1 ] ],
-    [ [ "chemistry_set", 10 ] ],
     [
       [ "hotplate", 10 ],
-      [ "char_smoker", 1 ],
+      [ "char_smoker", 10 ],
       [ "toolset", 10 ],
       [ "fire", -1 ]
     ]

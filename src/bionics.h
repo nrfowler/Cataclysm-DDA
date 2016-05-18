@@ -2,16 +2,12 @@
 #define BIONICS_H
 
 #include "json.h"
-#include "output.h" // WINDOW
 #include <string>
 
-/* Thought: Perhaps a HUD bionic that changes the display of the game?
- * Showing more information or something. */
+class player;
 
 struct bionic_data {
-    bionic_data() = default;
-    bionic_data(std::string nname, bool ps, bool tog, int pac, int pad, int pot,
-                int ct, int cap, std::string desc, bool fault);
+    bionic_data();
 
     std::string name;
     std::string description;
@@ -33,9 +29,12 @@ struct bionic_data {
     /** If true, then the bionic only has a function when activated, else it causes
         *  it's effect every turn. */
     bool toggled = false;
+    std::map<body_part, size_t> occupied_bodyparts;
+    /** Fake item created for crafting with this bionic available. */
+    std::string fake_item;
 };
 
-bionic_data const& bionic_info(std::string const &id);
+bionic_data const &bionic_info( std::string const &id );
 
 struct bionic : public JsonSerializer, public JsonDeserializer {
     std::string id;
@@ -44,23 +43,28 @@ struct bionic : public JsonSerializer, public JsonDeserializer {
     bool        powered = false;
 
     bionic()
-      : id("bio_batteries") { }
-    bionic(std::string pid, char pinvlet)
-      : id(std::move(pid)), invlet(pinvlet) { }
+        : id( "bio_batteries" ) { }
+    bionic( std::string pid, char pinvlet )
+        : id( std::move( pid ) ), invlet( pinvlet ) { }
 
-    bionic_data const& info() const {
-        return bionic_info(id);
+    bionic_data const &info() const {
+        return bionic_info( id );
     }
 
+    int get_quality( const quality_id &quality ) const;
+
     using JsonSerializer::serialize;
-    void serialize(JsonOut &json) const override;
+    void serialize( JsonOut &json ) const override;
     using JsonDeserializer::deserialize;
-    void deserialize(JsonIn &jsin) override;
+    void deserialize( JsonIn &jsin ) override;
 };
 
-void draw_exam_window(WINDOW *win, int border_line, bool examination);
+void check_bionics();
 void reset_bionics();
-void load_bionic(JsonObject &jsobj); // load a bionic from JSON
-bool is_valid_bionic(std::string const& id);
+void load_bionic( JsonObject &jsobj ); // load a bionic from JSON
+bool is_valid_bionic( std::string const &id );
+char get_free_invlet( player &p );
+std::string list_occupied_bps( const std::string &bio_id, const std::string &intro,
+                               const bool each_bp_on_new_line = true );
 
 #endif

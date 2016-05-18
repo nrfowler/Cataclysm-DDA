@@ -10,12 +10,14 @@
 #include "map.h"
 #include "translations.h"
 #include "field.h"
+#include "player.h"
 
 void mdefense::none( monster &, Creature *, const dealt_projectile_attack * )
 {
 }
 
-void mdefense::zapback( monster &m, Creature *const source, dealt_projectile_attack const *const proj )
+void mdefense::zapback( monster &m, Creature *const source,
+                        dealt_projectile_attack const *const proj )
 {
     // Not a melee attack, attacker lucked out or out of range
     if( source == nullptr || proj != nullptr ||
@@ -47,20 +49,8 @@ void mdefense::zapback( monster &m, Creature *const source, dealt_projectile_att
     source->check_dead_state();
 }
 
-static int sign( int arg )
-{
-    if( arg > 0 ) {
-        return 1;
-    }
-
-    if( arg < 0 ) {
-        return -1;
-    }
-
-    return 0;
-}
-
-void mdefense::acidsplash( monster &m, Creature *const source, dealt_projectile_attack const *const proj )
+void mdefense::acidsplash( monster &m, Creature *const source,
+                           dealt_projectile_attack const *const proj )
 {
     // Would be useful to have the attack data here, for cutting vs. bashing etc.
     if( proj != nullptr && proj->dealt_dam.total_damage() <= 0 ) {
@@ -71,11 +61,11 @@ void mdefense::acidsplash( monster &m, Creature *const source, dealt_projectile_
         return; //Less likely for a projectile to deliver enough force
     }
 
-    size_t num_drops = rng( 2, 4 );
+    size_t num_drops = rng( 4, 6 );
     player const *const foe = dynamic_cast<player *>( source );
     if( proj == nullptr && foe != nullptr ) {
         if( foe->weapon.is_cutting_weapon() ) {
-            num_drops += rng( 1, 2 );
+            num_drops += rng( 3, 4 );
         }
 
         if( foe->unarmed_attack() ) {
@@ -89,33 +79,30 @@ void mdefense::acidsplash( monster &m, Creature *const source, dealt_projectile_
                 source->deal_damage( &m, bp_hand_r, burn );
             }
 
-            source->add_msg_if_player( m_bad,
-                _("Acid covering %s burns your hand!"), m.disp_name().c_str() );
+            source->add_msg_if_player( m_bad, _( "Acid covering %s burns your hand!" ),
+                                       m.disp_name().c_str() );
         }
     }
 
-    const int sx = source == nullptr ? m.posx() : source->posx();
-    const int sy = source == nullptr ? m.posy() : source->posy();
-    const int dx = sign( sx - m.posx() );
-    const int dy = sign( sy - m.posy() );
-    bool on_u = false;
+    tripoint initial_target = source == nullptr ? m.pos() : source->pos();
+
+    // Don't splatter directly on the `m`, that doesn't work well
+    auto pts = closest_tripoints_first( 1, initial_target );
+    pts.erase( std::remove( pts.begin(), pts.end(), m.pos() ), pts.end() );
+
+    projectile prj;
+    prj.speed = 10;
+    prj.range = 4;
+    prj.proj_effects.insert( "DRAW_AS_LINE" );
+    prj.proj_effects.insert( "NO_DAMAGE_SCALING" );
+    prj.impact.add_damage( DT_ACID, rng( 1, 3 ) );
     for( size_t i = 0; i < num_drops; i++ ) {
-        const int mul = one_in( 2 ) ? 2 : 1;
-        tripoint dest( m.posx() + ( dx * mul ) + rng( -1, 1 ),
-                       m.posy() + ( dy * mul ) + rng( -1, 1 ),
-                       m.posz() );
-        g->m.add_field( dest, fd_acid, 1, 0 );
-        if( !on_u && dest == g->u.pos() ) {
-            on_u = true;
-        }
+        const tripoint &target = random_entry( pts );
+        m.projectile_attack( prj, target, 1200 );
     }
 
     if( g->u.sees( m.pos() ) ) {
         add_msg( m_warning, _( "Acid sprays out of %s as it is hit!" ),
                  m.disp_name().c_str() );
-    }
-
-    if( on_u ) {
-        add_msg( m_bad, _( "Some acid lands on you!" ) );
     }
 }

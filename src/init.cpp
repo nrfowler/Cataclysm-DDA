@@ -5,6 +5,8 @@
 
 // can load from json
 #include "effect.h"
+#include "vitamin.h"
+#include "fault.h"
 #include "material.h"
 #include "bionics.h"
 #include "profession.h"
@@ -14,6 +16,7 @@
 #include "item_factory.h"
 #include "vehicle_group.h"
 #include "crafting.h"
+#include "crafting_gui.h"
 #include "computer.h"
 #include "help.h"
 #include "mapdata.h"
@@ -47,6 +50,8 @@
 #include "veh_type.h"
 #include "clzones.h"
 #include "sounds.h"
+#include "gates.h"
+#include "overlay_ordering.h"
 
 #include <string>
 #include <vector>
@@ -96,6 +101,8 @@ void DynamicDataLoader::initialize()
     // all of the applicable types that can be loaded, along with their loading functions
     // Add to this as needed with new StaticFunctionAccessors or new ClassFunctionAccessors for new applicable types
     // Static Function Access
+    type_function_map["fault"] = new StaticFunctionAccessor(&fault::load_fault);
+    type_function_map["vitamin"] = new StaticFunctionAccessor(&vitamin::load_vitamin);
     type_function_map["material"] = new StaticFunctionAccessor(&material_type::load_material);
     type_function_map["bionic"] = new StaticFunctionAccessor(&load_bionic);
     type_function_map["profession"] = new StaticFunctionAccessor(&profession::load_profession);
@@ -151,8 +158,12 @@ void DynamicDataLoader::initialize()
             &Item_factory::load_comestible);
     type_function_map["CONTAINER"] = new ClassFunctionAccessor<Item_factory>(item_controller,
             &Item_factory::load_container);
+    type_function_map["ENGINE"] = new ClassFunctionAccessor<Item_factory>(item_controller,
+            &Item_factory::load_engine);
     type_function_map["GUNMOD"] = new ClassFunctionAccessor<Item_factory>(item_controller,
             &Item_factory::load_gunmod);
+    type_function_map["MAGAZINE"] = new ClassFunctionAccessor<Item_factory>(item_controller,
+            &Item_factory::load_magazine);
     type_function_map["GENERIC"] = new ClassFunctionAccessor<Item_factory>(item_controller,
             &Item_factory::load_generic);
     type_function_map["BIONIC_ITEM"] = new ClassFunctionAccessor<Item_factory>(item_controller,
@@ -169,7 +180,7 @@ void DynamicDataLoader::initialize()
 
     type_function_map["recipe_category"] = new StaticFunctionAccessor(&load_recipe_category);
     type_function_map["recipe"] = new StaticFunctionAccessor(&load_recipe);
-    type_function_map["tool_quality"] = new StaticFunctionAccessor(&quality::load);
+    type_function_map["tool_quality"] = new StaticFunctionAccessor(&quality::load_static);
     type_function_map["technique"] = new StaticFunctionAccessor(&load_technique);
     type_function_map["martial_art"] = new StaticFunctionAccessor(&load_martial_art);
     type_function_map["effect_type"] = new StaticFunctionAccessor(&load_effect_type);
@@ -191,13 +202,14 @@ void DynamicDataLoader::initialize()
     type_function_map["ITEM_WHITELIST"] = new ClassFunctionAccessor<Item_factory>(item_controller,
             &Item_factory::load_item_whitelist);
 
+    type_function_map[ "GAME_OPTION" ] = new ClassFunctionAccessor<game>( g, &game::load_game_option );
+
     // ...unimplemented?
     type_function_map["INSTRUMENT"] = new StaticFunctionAccessor(&load_ingored_type);
     // loaded earlier.
     type_function_map["colordef"] = new StaticFunctionAccessor(&load_ingored_type);
     // mod information, ignored, handled by the mod manager
     type_function_map["MOD_INFO"] = new StaticFunctionAccessor(&load_ingored_type);
-    type_function_map["BULLET_PULLING"] = new StaticFunctionAccessor(&iuse::load_bullet_pulling);
 
     type_function_map["faction"] = new StaticFunctionAccessor(
         &faction::load_faction);
@@ -210,9 +222,12 @@ void DynamicDataLoader::initialize()
 
     type_function_map["MONSTER_FACTION"] =
         new StaticFunctionAccessor(&monfactions::load_monster_faction);
+
     type_function_map["sound_effect"] = new StaticFunctionAccessor(&sfx::load_sound_effects);
     type_function_map["playlist"] = new StaticFunctionAccessor(&sfx::load_playlist);
 
+    type_function_map["gate"] = new StaticFunctionAccessor(&gates::load_gates);
+    type_function_map["overlay_order"] = new StaticFunctionAccessor( &load_overlay_ordering );
 }
 
 void DynamicDataLoader::reset()
@@ -307,6 +322,8 @@ void init_names()
 
 void DynamicDataLoader::unload_data()
 {
+    vitamin::reset();
+    fault::reset();
     material_type::reset();
     profession::reset();
     Skill::reset();
@@ -340,10 +357,14 @@ void DynamicDataLoader::unload_data()
     reset_mapgens();
     reset_effect_types();
     reset_speech();
-    iuse::reset_bullet_pulling();
     clear_overmap_specials();
     ammunition_type::reset();
     unload_talk_topics();
+    start_location::reset();
+    scenario::reset();
+    gates::reset();
+    reset_overlay_ordering();
+    g->options.clear();
 
     // TODO:
     //    NameGenerator::generator().clear_names();
@@ -352,6 +373,7 @@ void DynamicDataLoader::unload_data()
 extern void calculate_mapgen_weights();
 void DynamicDataLoader::finalize_loaded_data()
 {
+    item_controller->finalize();
     mission_type::initialize(); // Needs overmap terrain.
     set_ter_ids();
     set_furn_ids();
@@ -363,7 +385,6 @@ void DynamicDataLoader::finalize_loaded_data()
     MonsterGenerator::generator().finalize_mtypes();
     MonsterGroupManager::FinalizeMonsterGroups();
     monfactions::finalize();
-    item_controller->finialize_item_blacklist();
     finalize_recipes();
     finialize_martial_arts();
     check_consistency();
@@ -371,7 +392,9 @@ void DynamicDataLoader::finalize_loaded_data()
 
 void DynamicDataLoader::check_consistency()
 {
+    vitamin::check_consistency();
     item_controller->check_definitions();
+    fault::check_consistency();
     vpart_info::check();
     MonsterGenerator::generator().check_monster_definitions();
     MonsterGroupManager::check_group_definitions();
@@ -384,4 +407,5 @@ void DynamicDataLoader::check_consistency()
     mutation_branch::check_consistency();
     ammunition_type::check_consistency();
     trap::check_consistency();
+    check_bionics();
 }

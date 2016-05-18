@@ -23,47 +23,49 @@ void advanced_inv();
 void complete_vehicle();
 
 
-player_activity::player_activity(activity_type t, int turns, int Index, int pos,
-                                 std::string name_in) :
-    JsonSerializer(), JsonDeserializer(), type(t), moves_left(turns), index(Index),
-    position(pos), name(name_in), ignore_trivial(false), values(), str_values(),
-    placement( tripoint_min ), warned_of_proximity(false), auto_resume(false)
+player_activity::player_activity( activity_type t, int turns, int Index, int pos,
+                                  std::string name_in ) :
+    JsonSerializer(), JsonDeserializer(), type( t ), moves_total( turns ), moves_left( turns ),
+    index( Index ),
+    position( pos ), name( name_in ), ignore_trivial( false ), values(), str_values(),
+    placement( tripoint_min ), warned_of_proximity( false ), auto_resume( false )
 {
 }
 
 const std::string &player_activity::get_stop_phrase() const
 {
     static const std::string stop_phrase[NUM_ACTIVITIES] = {
-        _(" Stop?"), _(" Stop reloading?"),
-        _(" Stop reading?"), _(" Stop playing?"),
-        _(" Stop waiting?"), _(" Stop crafting?"),
-        _(" Stop crafting?"), _(" Stop disassembly?"),
-        _(" Stop butchering?"), _(" Stop salvaging?"), _(" Stop foraging?"),
-        _(" Stop construction?"), _(" Stop construction?"),
-        _(" Stop pumping gas?"), _(" Stop training?"),
-        _(" Stop waiting?"), _(" Stop using first aid?"),
-        _(" Stop fishing?"), _(" Stop mining?"), _(" Stop burrowing?"),
-        _(" Stop smashing?"), _(" Stop de-stressing?"),
-        _(" Stop cutting tissues?"), _(" Stop dropping?"),
-        _(" Stop stashing?"), _(" Stop picking up?"),
-        _(" Stop moving items?"), _(" Stop interacting with inventory?"),
-        _(" Stop fiddling with your clothes?"), _(" Stop lighting the fire?"),
-        _(" Stop working the winch?"), _(" Stop filling the container?"),
-        _(" Stop hotwiring the vehicle?"), _(" Stop aiming?"),
-        _(" Stop using the ATM?"), _(" Stop trying to start the vehicle?"),
-        _(" Stop welding?")
+        _( " Stop?" ), _( " Stop reloading?" ),
+        _( " Stop reading?" ), _( " Stop playing?" ),
+        _( " Stop waiting?" ), _( " Stop crafting?" ),
+        _( " Stop crafting?" ), _( " Stop disassembly?" ),
+        _( " Stop butchering?" ), _( " Stop salvaging?" ), _( " Stop foraging?" ),
+        _( " Stop construction?" ), _( " Stop interacting with the vehicle?" ),
+        _( " Stop pumping gas?" ), _( " Stop training?" ),
+        _( " Stop waiting?" ), _( " Stop using first aid?" ),
+        _( " Stop fishing?" ), _( " Stop mining?" ), _( " Stop burrowing?" ),
+        _( " Stop smashing?" ), _( " Stop de-stressing?" ),
+        _( " Stop cutting tissues?" ), _( " Stop dropping?" ),
+        _( " Stop stashing?" ), _( " Stop picking up?" ),
+        _( " Stop moving items?" ), _( " Stop interacting with inventory?" ),
+        _( " Stop fiddling with your clothes?" ), _( " Stop lighting the fire?" ),
+        _( " Stop working the winch?" ), _( " Stop filling the container?" ),
+        _( " Stop hotwiring the vehicle?" ), _( " Stop aiming?" ),
+        _( " Stop using the ATM?" ), _( " Stop trying to start the vehicle?" ),
+        _( " Stop welding?" ), _( " Stop cracking?" ), _( " Stop repairing?" ),
+        _( " Stop modifying gun?" )
     };
     return stop_phrase[type];
 }
 
 bool player_activity::is_abortable() const
 {
-    switch(type) {
+    switch( type ) {
         case ACT_READ:
         case ACT_BUILD:
         case ACT_CRAFT:
         case ACT_LONGCRAFT:
-        case ACT_REFILL_VEHICLE:
+        case ACT_DISASSEMBLE:
         case ACT_WAIT:
         case ACT_WAIT_WEATHER:
         case ACT_FIRSTAID:
@@ -84,6 +86,8 @@ bool player_activity::is_abortable() const
         case ACT_START_ENGINES:
         case ACT_OXYTORCH:
         case ACT_CRACKING:
+        case ACT_REPAIR_ITEM:
+        case ACT_GUNMOD_ADD:
             return true;
         default:
             return false;
@@ -92,7 +96,7 @@ bool player_activity::is_abortable() const
 
 bool player_activity::never_completes() const
 {
-    switch(type) {
+    switch( type ) {
         case ACT_ADV_INVENTORY:
             return true;
         default:
@@ -102,13 +106,13 @@ bool player_activity::never_completes() const
 
 bool player_activity::is_complete() const
 {
-    return (never_completes()) ? false : moves_left <= 0;
+    return ( never_completes() ) ? false : moves_left <= 0;
 }
 
 
 bool player_activity::is_suspendable() const
 {
-    switch(type) {
+    switch( type ) {
         case ACT_NULL:
         case ACT_RELOAD:
         case ACT_DISASSEMBLE:
@@ -122,6 +126,8 @@ bool player_activity::is_suspendable() const
         case ACT_AIM:
         case ACT_ATM:
         case ACT_START_ENGINES:
+        case ACT_GUNMOD_ADD:
+        case ACT_FILL_LIQUID:
             return false;
         default:
             return true;
@@ -129,19 +135,19 @@ bool player_activity::is_suspendable() const
 }
 
 
-int player_activity::get_value(size_t index, int def) const
+int player_activity::get_value( size_t index, int def ) const
 {
-    return (index < values.size()) ? values[index] : def;
+    return ( index < values.size() ) ? values[index] : def;
 }
 
-std::string player_activity::get_str_value(size_t index, std::string def) const
+std::string player_activity::get_str_value( size_t index, std::string def ) const
 {
-    return (index < str_values.size()) ? str_values[index] : def;
+    return ( index < str_values.size() ) ? str_values[index] : def;
 }
 
 void player_activity::do_turn( player *p )
 {
-    switch (type) {
+    switch( type ) {
         case ACT_WAIT:
         case ACT_WAIT_NPC:
         case ACT_WAIT_WEATHER:
@@ -152,7 +158,7 @@ void player_activity::do_turn( player *p )
             break;
         case ACT_PICKAXE:
             // Based on speed, not time
-            if (p->moves <= moves_left) {
+            if( p->moves <= moves_left ) {
                 moves_left -= p->moves;
                 p->moves = 0;
             } else {
@@ -163,7 +169,7 @@ void player_activity::do_turn( player *p )
             break;
         case ACT_BURROW:
             // Based on speed, not time
-            if (p->moves <= moves_left) {
+            if( p->moves <= moves_left ) {
                 moves_left -= p->moves;
                 p->moves = 0;
             } else {
@@ -181,7 +187,7 @@ void player_activity::do_turn( player *p )
                 }
 
                 g->m.build_map_cache( g->get_levz() );
-                g->plfire(false);
+                g->plfire( false );
             }
             break;
         case ACT_GAME:
@@ -193,8 +199,7 @@ void player_activity::do_turn( player *p )
             activity_handlers::vibe_do_turn( this, p );
             break;
         case ACT_REFILL_VEHICLE:
-            // Takes care of u.activity.moves_left
-            activity_handlers::refill_vehicle_do_turn( this, p );
+            type = ACT_NULL; // activity is not used anymore.
             break;
         case ACT_PULP:
             // does not really use u.activity.moves_left, stops itself when finished
@@ -229,7 +234,8 @@ void player_activity::do_turn( player *p )
             break;
         case ACT_START_FIRE:
             moves_left -= 100; // based on time
-            if (p->i_at(position).has_flag("LENS")) { // if using a lens, handle potential changes in weather
+            if( p->i_at(
+                    position ).has_flag( "LENS" ) ) { // if using a lens, handle potential changes in weather
                 activity_handlers::start_fire_lens_do_turn( this, p );
             }
             p->rooted();
@@ -237,7 +243,7 @@ void player_activity::do_turn( player *p )
             break;
         case ACT_OPEN_GATE:
             // Based on speed, not time
-            if (p->moves <= moves_left) {
+            if( p->moves <= moves_left ) {
                 moves_left -= p->moves;
                 p->moves = 0;
             } else {
@@ -249,15 +255,7 @@ void player_activity::do_turn( player *p )
             activity_handlers::fill_liquid_do_turn( this, p );
             break;
         case ACT_ATM:
-            // Based on speed, not time
-            if (p->moves <= moves_left) {
-                moves_left -= p->moves;
-                p->moves = 0;
-            } else {
-                p->moves -= moves_left;
-                moves_left = 0;
-            }
-            iexamine::atm(p, nullptr, p->pos());
+            iexamine::atm( *p, p->pos() );
             break;
         case ACT_START_ENGINES:
             moves_left -= 100;
@@ -276,12 +274,12 @@ void player_activity::do_turn( player *p )
                 activity_handlers::oxytorch_do_turn( this, p );
             }
             break;
-         case ACT_CRACKING:
-             if (!p->has_amount("stethoscope", 1)) {
-                 // We lost our stethoscope somehow, bail out.
-                 type = ACT_NULL;
-                 break;
-             }
+        case ACT_CRACKING:
+            if( !( p->has_amount( "stethoscope", 1 ) || p->has_bionic( "bio_ears" ) ) ) {
+                // We lost our cracking tool somehow, bail out.
+                type = ACT_NULL;
+                break;
+            }
             // Based on speed, not time
             if( p->moves <= moves_left ) {
                 moves_left -= p->moves;
@@ -291,6 +289,34 @@ void player_activity::do_turn( player *p )
                 moves_left = 0;
             }
             p->practice( skill_id( "mechanics" ), 1 );
+            break;
+        case ACT_REPAIR_ITEM: {
+            // Based on speed * detail vision
+            const int effective_moves = p->moves / p->fine_detail_vision_mod();
+            if( effective_moves <= moves_left ) {
+                moves_left -= effective_moves;
+                p->moves = 0;
+            } else {
+                p->moves -= moves_left * p->fine_detail_vision_mod();
+                moves_left = 0;
+            }
+        }
+
+        break;
+
+        case ACT_BUTCHER:
+            // Drain some stamina
+            p->mod_stat( "stamina", -20.0f * p->stamina / p->get_stamina_max() );
+            // Based on speed, not time
+            if( p->moves <= moves_left ) {
+                moves_left -= p->moves;
+                p->moves = 0;
+            } else {
+                p->moves -= moves_left;
+                moves_left = 0;
+            }
+            break;
+
         default:
             // Based on speed, not time
             if( p->moves <= moves_left ) {
@@ -302,7 +328,7 @@ void player_activity::do_turn( player *p )
             }
     }
 
-    if (is_complete()) {
+    if( is_complete() ) {
         finish( p );
     }
 }
@@ -310,51 +336,48 @@ void player_activity::do_turn( player *p )
 
 void player_activity::finish( player *p )
 {
-    switch (type) {
+    switch( type ) {
         case ACT_RELOAD:
             activity_handlers::reload_finish( this, p );
             break;
         case ACT_READ:
-            p->do_read(&(p->i_at(position)));
-            if (type == ACT_NULL) {
-                add_msg(_("You finish reading."));
+            p->do_read( &( p->i_at( position ) ) );
+            if( type == ACT_NULL ) {
+                add_msg( _( "You finish reading." ) );
             }
             break;
         case ACT_WAIT:
         case ACT_WAIT_WEATHER:
-            add_msg(_("You finish waiting."));
+            add_msg( _( "You finish waiting." ) );
             type = ACT_NULL;
             break;
         case ACT_WAIT_NPC:
-            add_msg(_("%s finishes with you..."),str_values[0].c_str());
+            add_msg( _( "%s finishes with you..." ), str_values[0].c_str() );
             type = ACT_NULL;
             break;
         case ACT_CRAFT:
             p->complete_craft();
             type = ACT_NULL;
             break;
-        case ACT_LONGCRAFT:
-            {
-                int batch_size = values.front();
-                p->complete_craft();
-                type = ACT_NULL;
-                // Workaround for a bug where longcraft can be unset in complete_craft().
-                if( p->making_would_work( p->lastrecipe, batch_size ) ) {
-                    p->make_all_craft( p->lastrecipe, batch_size );
-                }
+        case ACT_LONGCRAFT: {
+            int batch_size = values.front();
+            p->complete_craft();
+            type = ACT_NULL;
+            // Workaround for a bug where longcraft can be unset in complete_craft().
+            if( p->making_would_work( p->lastrecipe, batch_size ) ) {
+                p->make_all_craft( p->lastrecipe, batch_size );
             }
-            break;
+        }
+        break;
         case ACT_FORAGE:
             activity_handlers::forage_finish( this, p );
             type = ACT_NULL;
             break;
         case ACT_DISASSEMBLE:
             p->complete_disassemble();
-            type = ACT_NULL;
             break;
         case ACT_BUTCHER:
             activity_handlers::butcher_finish( this, p );
-            type = ACT_NULL;
             break;
         case ACT_LONGSALVAGE:
             activity_handlers::longsalvage_finish( this, p );
@@ -384,7 +407,7 @@ void player_activity::finish( player *p )
             type = ACT_NULL;
             break;
         case ACT_VIBE:
-            add_msg(m_good, _("You feel much better."));
+            add_msg( m_good, _( "You feel much better." ) );
             type = ACT_NULL;
             break;
         case ACT_MAKE_ZLAVE:
@@ -396,7 +419,7 @@ void player_activity::finish( player *p )
             // Only do nothing if the item being picked up doesn't need to be equipped.
             // If it needs to be equipped, our activity_handler::pickup_finish() does so.
             // This is primarily used by AIM to advance moves while moving items around.
-            activity_handlers::pickup_finish(this, p);
+            activity_handlers::pickup_finish( this, p );
             break;
         case ACT_START_FIRE:
             activity_handlers::start_fire_finish( this, p );
@@ -414,7 +437,7 @@ void player_activity::finish( player *p )
             break;
         case ACT_ATM:
             // ATM sets index to 0 to indicate it's finished.
-            if (!index) {
+            if( !index ) {
                 type = ACT_NULL;
             }
             break;
@@ -427,13 +450,21 @@ void player_activity::finish( player *p )
             type = ACT_NULL;
             break;
         case ACT_CRACKING:
-            activity_handlers::cracking_finish( this, p);
+            activity_handlers::cracking_finish( this, p );
+            type = ACT_NULL;
+            break;
+        case ACT_REPAIR_ITEM:
+            // Unsets activity (if needed) inside function
+            activity_handlers::repair_item_finish( this, p );
+            break;
+        case ACT_GUNMOD_ADD:
+            activity_handlers::gunmod_add_finish( this, p );
             type = ACT_NULL;
             break;
         default:
             type = ACT_NULL;
     }
-    if (type == ACT_NULL) {
+    if( type == ACT_NULL ) {
         // Make sure data of previous activity is cleared
         p->activity = player_activity();
         if( !p->backlog.empty() && p->backlog.front().auto_resume ) {

@@ -1,7 +1,6 @@
 #ifndef DIALOGUE_H
 #define DIALOGUE_H
 
-#include "player.h"
 #include "output.h"
 #include "color.h"
 #include <vector>
@@ -12,6 +11,7 @@ class martialart;
 class JsonObject;
 class mission;
 class npc;
+class player;
 
 struct talk_response;
 struct dialogue {
@@ -88,9 +88,9 @@ private:
     talk_response &add_response( const std::string &text, const std::string &r, mission *miss );
     /**
      * Add a simple response that switches the topic to the new one and sets the currently
-     * talked about skill to the given one. The skill pointer must be valid.
+     * talked about skill to the given one.
      */
-    talk_response &add_response( const std::string &text, const std::string &r, const Skill *skill );
+    talk_response &add_response( const std::string &text, const std::string &r, const skill_id &skill );
     /**
      * Add a simple response that switches the topic to the new one and sets the currently
      * talked about martial art style to the given one.
@@ -105,7 +105,6 @@ namespace talk_function {
     void mission_failure      (npc *);
     void clear_mission        (npc *);
     void mission_reward       (npc *);
-    void mission_reward_cash  (npc *);
     void mission_favor        (npc *);
     void give_equipment       (npc *);
     void give_aid             (npc *);
@@ -161,13 +160,21 @@ namespace talk_function {
     void set_engagement_close (npc *);
     void set_engagement_weak  (npc *);
     void set_engagement_hit   (npc *);
+    void set_engagement_no_move( npc * );
     void set_engagement_all   (npc *);
+
+    void set_aim_convenient         ( npc * );
+    void set_aim_spray              ( npc * );
+    void set_aim_precise            ( npc * );
+    void set_aim_strictly_precise   ( npc * );
 
     void wake_up              (npc *);
 
     void toggle_pickup        (npc *);
     void toggle_bashing       (npc *);
     void toggle_allow_sleep   (npc *);
+    void toggle_allow_complain(npc *);
+    void toggle_allow_pulp    (npc *);
 
 /*mission_companion.cpp proves a set of functions that compress all the typical mission operations into a set of hard-coded
  *unique missions that don't fit well into the framework of the existing system.  These missions typically focus on
@@ -262,7 +269,7 @@ struct talk_response {
      * new mission.
      */
     mission *mission_selected = nullptr;
-    const Skill* skill = nullptr;
+    skill_id skill = skill_id::NULL_ID;
     matype_id style;
     /**
      * Defines what happens when the trial succeeds or fails. If trial is

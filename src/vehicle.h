@@ -120,20 +120,37 @@ vehicle_stack( std::list<item> *newstack, point newloc, vehicle *neworigin, int 
 struct vehicle_part : public JsonSerializer, public JsonDeserializer
 {
     friend vehicle;
+    friend visitable<vehicle_cursor>;
+
     enum : int { passenger_flag = 1 };
 
-    vehicle_part( int dx = 0, int dy = 0 );
-    vehicle_part( const vpart_str_id &sid, int dx = 0, int dy = 0, const item *it = nullptr );
+    vehicle_part(); /** DefaultConstructible */
+
+    vehicle_part( const vpart_str_id& str, int dx, int dy, item&& it );
 
     bool has_flag(int const flag) const noexcept { return flag & flags; }
     int  set_flag(int const flag)       noexcept { return flags |= flag; }
     int  remove_flag(int const flag)    noexcept { return flags &= ~flag; }
 
-private:
-    vpart_id id;         // id in map of parts (vehicle_part_types key)
+    /** Translated name of a part inclusive of any current status effects */
+    std::string name() const;
+
+    /** Current faults affecting this part (if any) */
+    const std::set<fault_id>& faults() const;
+
+    /** Faults which could potentially occur with this part (if any) */
+    std::set<fault_id> faults_potential() const;
+
+    /** Try to set fault returning false if specified fault cannot occur with this item */
+    bool fault_set( const fault_id &f );
+
 public:
-    point mount;                  // mount point: x is on the forward/backward axis, y is on the left/right axis
-    std::array<point, 2> precalc; // mount translated to face.dir [0] and turn_dir [1]
+    /** mount point: x is on the forward/backward axis, y is on the left/right axis */
+    point mount;
+
+    /** mount translated to face.dir [0] and turn_dir [1] */
+    std::array<point, 2> precalc = { { point( -1, -1 ), point( -1, -1 ) } };
+
     int hp           = 0;         // current durability, if 0, then broken
     int blood        = 0;         // how much blood covers part (in turns).
     int bigness      = 0;         // size of engine, wheel radius, translates to item properties.
@@ -144,21 +161,22 @@ public:
     int flags        = 0;         //
     int passenger_id = 0;         // carrying passenger
 
-    union {
-        int amount;    // amount of fuel for tank/charge in battery
-        int open;      // door is open
-        int direction; // direction the part is facing
-        int mode;      // turret mode
-    };
+    int amount = 0;               // amount of fuel for tank/charge in battery
+    bool open = false;            // door is open
+    int direction = 0;            // direction the part is facing
+    int mode = 0;                 // turret mode
 
     // Coordinates for some kind of target; jumper cables and turrets use this
     // Two coord pairs are stored: actual target point, and target vehicle center.
     // Both cases use absolute coordinates (relative to world origin)
     std::pair<tripoint, tripoint> target;
+
 private:
+    vpart_id id;         // id in map of parts (vehicle_part_types key)
+    item base;
     std::list<item> items; // inventory
+
 public:
-    void set_id( const vpart_str_id & str );
     const vpart_str_id &get_id() const;
     const vpart_info &info() const;
 
@@ -174,11 +192,6 @@ public:
      * aspect, ...
      */
     item properties_to_item() const;
-    /**
-     * Set members of this vehicle part from properties of the item.
-     * It includes hp, fuel, bigness, ...
-     */
-    void properties_from_item( const item &used_item );
 };
 
 /**
@@ -237,6 +250,8 @@ struct label : public JsonSerializer, public JsonDeserializer {
  *   assigns `precalc[1]` to `precalc[0]`. At any time (except
  *   `map::vehmove()` innermost cycle) you can get actual part coords
  *   relative to vehicle's position by reading `precalc[0]`.
+ *   Vehicles rotate around a (possibly changing) pivot point, and
+ *   the precalc coordinates always put the pivot point at (0,0).
  * - Vehicle keeps track of 3 directions:
  *     Direction | Meaning
  *     --------- | -------
@@ -283,6 +298,7 @@ private:
     void open_or_close(int part_index, bool opening);
     bool is_connected(vehicle_part const &to, vehicle_part const &from, vehicle_part const &excluded) const;
     void add_missing_frames();
+    void add_steerable_wheels();
 
     // direct damage to part (armor protection and internals are not counted)
     // returns damage bypassed
@@ -364,18 +380,22 @@ public:
     void smash();
 
     // load and init vehicle data from stream. This implies valid save data!
-    void load (std::ifstream &stin);
+    void load (std::istream &stin);
 
     // Save vehicle data to stream
-    void save (std::ofstream &stout);
+    void save (std::ostream &stout);
 
     using JsonSerializer::serialize;
     void serialize(JsonOut &jsout) const override;
     using JsonDeserializer::deserialize;
     void deserialize(JsonIn &jsin) override;
 
-    // Operate vehicle
-    void use_controls();
+    /**
+     *  Operate vehicle controls
+     *  @param pos Position of controls to operate
+     *  @param remote_action true if controls operated via remote controller
+     */
+    void use_controls(const tripoint &pos, const bool remote_action = false);
 
     // Fold up the vehicle
     bool fold_up();
@@ -408,8 +428,9 @@ public:
     int install_part (int dx, int dy, const vpart_str_id &id, int hp = -1, bool force = false);
     // Install a copy of the given part, skips possibility check
     int install_part (int dx, int dy, const vehicle_part &part);
-    // install an item to vehicle as a vehicle part.
-    int install_part (int dx, int dy, const vpart_str_id &id, const item &item_used);
+
+    /** install item @ref obj to vehicle as a vehicle part */
+    int install_part( int dx, int dy, const vpart_str_id& id, item&& obj );
 
     bool remove_part (int p);
     void part_removal_cleanup ();
@@ -430,6 +451,7 @@ public:
 
     // returns index of part, inner to given, with certain flag, or -1
     int part_with_feature (int p, const std::string &f, bool unbroken = true) const;
+    int part_with_feature_at_relative (const point &pt, const std::string &f, bool unbroken = true) const;
     int part_with_feature (int p, vpart_bitflags f, bool unbroken = true) const;
 
     /**
@@ -470,11 +492,11 @@ public:
     // Broken parts are also never obstacles
     int obstacle_at_part( int p ) const;
 
-    // Translate seat-relative mount coords into tile coords
-    void coord_translate (int reldx, int reldy, int &dx, int &dy) const;
+    // Translate mount coords "p" using current pivot direction and anchor and return tile coords
+    point coord_translate (const point &p) const;
 
-    // Translate seat-relative mount coords into tile coords using given face direction
-    void coord_translate (int dir, int reldx, int reldy, int &dx, int &dy) const;
+    // Translate mount coords "p" into tile coords "q" using given pivot direction and anchor
+    void coord_translate (int dir, const point &pivot, const point &p, point &q) const;
 
     // Seek a vehicle part which obstructs tile with given coords relative to vehicle position
     int part_at( int dx, int dy ) const;
@@ -494,7 +516,7 @@ public:
     nc_color part_color( int p, bool exact = false ) const;
 
     // Vehicle parts description
-    int print_part_desc (WINDOW *win, int y1, int width, int p, int hl = -1) const;
+    int print_part_desc (WINDOW *win, int y1, int max_y, int width, int p, int hl = -1) const;
 
     // Get all printable fuel types
     std::vector< itype_id > get_printable_fuel_types (bool fullsize) const;
@@ -504,7 +526,7 @@ public:
                                bool verbose = false, bool desc = false, bool isHorizontal = false) const;
 
     // Precalculate mount points for (idir=0) - current direction or (idir=1) - next turn direction
-    void precalc_mounts (int idir, int dir);
+    void precalc_mounts (int idir, int dir, const point &pivot);
 
     // get a list of part indeces where is a passenger inside
     std::vector<int> boarded_parts() const;
@@ -523,6 +545,10 @@ public:
     int global_y() const;
     point global_pos() const;
     tripoint global_pos3() const;
+    /**
+     * Get the coordinates of the studied part of the vehicle
+     */
+    tripoint global_part_pos3( const int &index ) const;
     /**
      * Really global absolute coordinates in map squares.
      * This includes the overmap, the submap, and the map square.
@@ -567,11 +593,26 @@ public:
      */
     int discharge_battery (int amount, bool recurse = true);
 
+    /**
+     * Mark mass caches and pivot cache as dirty
+     */
+    void invalidate_mass();
+
     // get the total mass of vehicle, including cargo and passengers
     int total_mass () const;
 
-    // get center of mass of vehicle; coordinates are precalc[0]
-    void center_of_mass(int &x, int &y) const;
+    // get center of mass of vehicle; coordinates are precalc[0] if use_precalc is set,
+    // unrotated part coordinates otherwise
+    void center_of_mass(int &x, int &y, bool use_precalc = true) const;
+
+    // Get the pivot point of vehicle; coordinates are unrotated mount coordinates.
+    // This may result in refreshing the pivot point if it is currently stale.
+    const point &pivot_point() const;
+
+    // Get the (artificial) displacement of the vehicle due to the pivot point changing
+    // between precalc[0] and precalc[1]. This needs to be subtracted from any actual
+    // vehicle motion after precalc[1] is prepared.
+    point pivot_displacement() const;
 
     // Get combined power of all engines. If fueled == true, then only engines which
     // vehicle have fuel for are accounted
@@ -620,6 +661,10 @@ public:
     bool sufficient_wheel_config() const;
     bool balanced_wheel_config() const;
     bool valid_wheel_config() const;
+
+    // return the relative effectiveness of the steering (1.0 is normal)
+    // <0 means there is no steering installed at all.
+    float steering_effectiveness() const;
 
     // idle fuel consumption
     void idle(bool on_map = true);
@@ -738,14 +783,20 @@ public:
     // Set up the turret to fire
     bool fire_turret( int p, bool manual );
 
-    // Fire turret at some automatically acquired target
-    bool automatic_fire_turret( int p, const itype &gun, const itype &ammo, long &charges );
+    /*
+     * Fire turret at some automatically acquired target
+     * @param p part number for the turret
+     * @return number of shots actually fired (which may be zero)
+     */
+    int automatic_fire_turret( int p, item &gun );
 
-    // Manual turret fire - gives the `shooter` a temporary weapon, makes them use it,
-    // then gives back the weapon held before (if any).
+    /*
+     * Aim and fire turret manually
+     * @param p part number for the turret
+     * @return number of shots actually fired (which may be zero)
+     */
     // TODO: Make it work correctly with UPS-powered turrets when player has a UPS already
-    bool manual_fire_turret( int p, player &shooter, const itype &guntype,
-                             const itype &ammotype, long &charges );
+    int manual_fire_turret( int p, player &shooter, item &gun );
 
     // Update the set of occupied points and return a reference to it
     std::set<tripoint> &get_points( bool force_refresh = false );
@@ -785,8 +836,6 @@ public:
     bool is_part_on(int p) const;
     //returns whether the engine uses specified fuel type
     bool is_engine_type(int e, const itype_id &ft) const;
-    //returns whether there is an active engine at vehicle coordinates
-    bool is_active_engine_at(int x, int y) const;
     //returns whether the alternator is operational
     bool is_alternator_on(int a) const;
     //mark engine as on or off
@@ -820,6 +869,9 @@ public:
 
     const std::string disp_name();
 
+    /** Required strength to be able to successfully lift the vehicle unaided by equipment */
+    int lift_strength() const;
+
     // config values
     std::string name;   // vehicle name
     /**
@@ -841,6 +893,7 @@ public:
     std::vector<int> funnels;          // List of funnel indices
     std::vector<int> loose_parts;      // List of UNMOUNT_ON_MOVE parts
     std::vector<int> wheelcache;       // List of wheels
+    std::vector<int> steering;         // List of STEERABLE parts
     std::vector<int> speciality;       // List of parts that will not be on a vehicle very often, or which only one will be present
     std::vector<int> floating;         // List of parts that provide buoyancy to boats
     std::set<std::string> tags;        // Properties of the vehicle
@@ -888,9 +941,11 @@ public:
     int velocity = 0;       // vehicle current velocity, mph * 100
     int cruise_velocity = 0; // velocity vehicle's cruise control trying to achieve
     int vertical_velocity = 0; // Only used for collisions, vehicle falls instantly
-    std::string music_id;    // what music storage device is in the stereo
     int om_id;          // id of the om_vehicle struct corresponding to this vehicle
     int turn_dir;       // direction, to which vehicle is turning (player control). will rotate frame on next move
+
+    std::array<point, 2> pivot_anchor; // points used for rotation of mount precalc values
+    std::array<int, 2> pivot_rotation; // rotation used for mount precalc values
 
     int last_turn = 0;      // amount of last turning (for calculate skidding due to handbrake)
     float of_turn;      // goes from ~1 to ~0 while proceeding every turn
@@ -934,6 +989,23 @@ public:
     bool planter_on                 = false; // Is the vehicle sprawing seeds everywhere?
     bool scoop_on                   = false; //Does the vehicle have a scoop? Which picks up items.
     bool reaper_on                  = false; //Is the reaper active?
+
+private:
+    void refresh_pivot() const;                // refresh pivot_cache, clear pivot_dirty
+
+    mutable bool pivot_dirty;                  // if true, pivot_cache needs to be recalculated
+    mutable point pivot_cache;                 // cached pivot point
+
+    void refresh_mass() const;
+    void calc_mass_center( bool precalc ) const;
+
+    mutable bool mass_dirty                     = true;
+    mutable bool mass_center_precalc_dirty      = true;
+    mutable bool mass_center_no_precalc_dirty   = true;
+
+    mutable int mass_cache;
+    mutable point mass_center_precalc;
+    mutable point mass_center_no_precalc;
 };
 
 #endif

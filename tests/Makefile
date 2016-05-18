@@ -11,31 +11,30 @@ CATA_LIB=../cataclysm.a
 
 ODIR := obj
 
-DDIR := .deps
-
 LDFLAGS += -L.
 
 # Allow use of any header files from cataclysm.
 # Catch sections throw unused variable warnings.
-CXXFLAGS += -I../src -Wno-unused-variable
+# Add no-sign-compare to fix MXE issue when compiling
+# Catch also uses "#pragma gcc diagnostic", which is not recognized on some supported compilers.
+# Clang and mingw are warning about Catch macros around perfectly normal boolean operations.
+CXXFLAGS += -I../src -Wno-unused-variable -Wno-sign-compare -Wno-unknown-pragmas -Wno-parentheses
 
 tests: cata_test
 
-cata_test: $(ODIR) $(DDIR) $(OBJS)
-	$(CXX) $(W32FLAGS) -o $@ $(DEFINES) $(OBJS) $(CATA_LIB) $(CXXFLAGS) $(LDFLAGS)
+cata_test: $(ODIR) $(OBJS)
+	+$(CXX) $(W32FLAGS) -o $@ $(DEFINES) $(OBJS) $(CATA_LIB) $(CXXFLAGS) $(LDFLAGS)
 
 # Iterate over all the individual tests.
 check: cata_test
 	cd .. && tests/cata_test -d yes
 
 clean:
-	rm -f *.d $(ODIR)/*.o $(ODIR)/*.d
+	rm -rf $(ODIR)
+	rm -f cata_test
 
 $(ODIR):
 	mkdir $(ODIR)
-
-$(DDIR):
-	@mkdir $(DDIR)
 
 $(ODIR)/%.o: %.cpp
 	$(CXX) $(DEFINES) $(CXXFLAGS) -c $< -o $@

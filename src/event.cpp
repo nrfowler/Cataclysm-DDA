@@ -9,13 +9,12 @@
 #include "overmapbuffer.h"
 #include "messages.h"
 #include "sounds.h"
-#include "morale.h"
+#include "morale_types.h"
 #include "mapdata.h"
 
 #include <climits>
 
 const mtype_id mon_amigara_horror( "mon_amigara_horror" );
-const mtype_id mon_centipede( "mon_centipede" );
 const mtype_id mon_copbot( "mon_copbot" );
 const mtype_id mon_dark_wyrm( "mon_dark_wyrm" );
 const mtype_id mon_dermatik( "mon_dermatik" );
@@ -23,6 +22,7 @@ const mtype_id mon_eyebot( "mon_eyebot" );
 const mtype_id mon_riotbot( "mon_riotbot" );
 const mtype_id mon_sewer_snake( "mon_sewer_snake" );
 const mtype_id mon_spider_widow_giant( "mon_spider_widow_giant" );
+const mtype_id mon_spider_cellar_giant( "mon_spider_cellar_giant" );
 
 event::event( event_type e_t, int t, int f_id, tripoint p )
 : type( e_t )
@@ -113,9 +113,11 @@ void event::actualize()
         }
         // You could drop the flag, you know.
         if (g->u.has_amount("petrified_eye", 1)) {
-            add_msg(_("The eye you're carrying lets out a tortured scream!"));
             sounds::sound(g->u.pos(), 60, "");
-            g->u.add_morale(MORALE_SCREAM, -15, 0, 300, 5);
+            if (!g->u.is_deaf()) {
+                add_msg(_("The eye you're carrying lets out a tortured scream!"));
+                g->u.add_morale(MORALE_SCREAM, -15, 0, 300, 5);
+            }
         }
         if (!one_in(25)) { // They just keep coming!
             g->add_event(EVENT_SPAWN_WYRMS, int(calendar::turn) + rng(15, 25));
@@ -255,7 +257,7 @@ void event::actualize()
 
     case EVENT_TEMPLE_SPAWN: {
         static const std::array<mtype_id, 4> temple_monsters = { {
-            mon_sewer_snake, mon_centipede, mon_dermatik, mon_spider_widow_giant
+            mon_sewer_snake, mon_dermatik, mon_spider_widow_giant, mon_spider_cellar_giant
         } };
         const mtype_id &montype = random_entry( temple_monsters );
         int tries = 0, x, y;

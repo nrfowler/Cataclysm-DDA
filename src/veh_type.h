@@ -10,6 +10,8 @@
 #include <string>
 #include <memory>
 
+using itype_id = std::string;
+
 struct vpart_info;
 using vpart_str_id = string_id<vpart_info>;
 using vpart_id = int_id<vpart_info>;
@@ -18,6 +20,8 @@ using vproto_id = string_id<vehicle_prototype>;
 class vehicle;
 class JsonObject;
 struct vehicle_item_spawn;
+struct quality;
+using quality_id = string_id<quality>;
 typedef int nc_color;
 
 // bitmask backing store of -certian- vpart_info.flags, ones that
@@ -66,61 +70,72 @@ enum vpart_bitflags : int {
  * MOUNTABLE - Usable as a point to fire a mountable weapon from.
  * Other flags are self-explanatory in their names. */
 struct vpart_info {
-    using itype_id = std::string;
-    vpart_str_id id;         // unique identifier for this part
-    vpart_id loadid;             // # of loaded order, non-saved runtime optimization
-    std::string name;       // part name, user-visible
-    long sym;               // symbol of part as if it's looking north
-    nc_color color;         // color
-    char sym_broken;        // symbol of broken part as if it's looking north
-    nc_color color_broken;  // color of broken part
-    int dmg_mod;            // damage modifier, percent
-    int durability;         // durability
-    int power;              // engine (top spd), solar panel/powered component (% of 1 fuel per turn, can be > 100)
-    int epower;             // electrical power in watts (positive values for generation, negative for consumption)
-    int folded_volume;      // volume of a foldable part when folded
-    int range;              // turret target finder range
-    union {
-        int par1;
-        int size;       // fuel tank, trunk
-        int wheel_width;// wheel width in inches. car could be 9, bicycle could be 2.
-        int bonus;      // seatbelt (str), muffler (%), horn (vol)
-    };
-    itype_id fuel_type;  // engine, fuel tank
-    itype_id item;      // corresponding item
-    int difficulty;     // installation difficulty (mechanics requirement)
-    std::string location;   //Where in the vehicle this part goes
-    std::string breaks_into_group;
-private:
-    std::set<std::string> flags;    // flags
-    std::bitset<NUM_VPFLAGS> bitflags; // flags checked so often that things slow down due to string cmp
-public:
+        using itype_id = std::string;
+        vpart_str_id id;         // unique identifier for this part
+        vpart_id loadid;             // # of loaded order, non-saved runtime optimization
+        long sym;               // symbol of part as if it's looking north
+        nc_color color;         // color
+        char sym_broken;        // symbol of broken part as if it's looking north
+        nc_color color_broken;  // color of broken part
+        int dmg_mod;            // damage modifier, percent
+        int durability;         // durability
+        int power;              // engine (top spd), solar panel/powered component (% of 1 fuel per turn, can be > 100)
+        int epower;             // electrical power in watts (positive values for generation, negative for consumption)
+        int folded_volume;      // volume of a foldable part when folded
+        int range;              // turret target finder range
+        int size;               // fuel tank or cargo location volume
 
-    int z_order;        // z-ordering, inferred from location, cached here
-    int list_order;     // Display order in vehicle interact display
+        union {
+            int par1;
+            int wheel_width;// wheel width in inches. car could be 9, bicycle could be 2.
+            int bonus;      // seatbelt (str), muffler (%), horn (vol)
+        };
+        itype_id fuel_type;  // engine, fuel tank
+        itype_id item;      // corresponding item
+        int difficulty;     // installation difficulty (mechanics requirement)
+        std::string location;   //Where in the vehicle this part goes
+        std::string breaks_into_group;
 
-    bool has_flag(const std::string &flag) const
-    {
-        return flags.count(flag) != 0;
-    }
-    bool has_flag(const vpart_bitflags flag) const
-    {
-        return bitflags.test( flag );
-    }
-    void set_flag( const std::string &flag );
+        /** Tool qualities this vehicle part can provide when installed */
+        std::map<quality_id, int> qualities;
 
-    static void load( JsonObject &jo );
-    static void check();
-    static void reset();
+        /** Translated name of a part */
+        std::string name() const;
 
-    static const std::vector<const vpart_info*> &get_all();
+    private:
+        /** Name from vehicle part definition which if set overrides the base item name */
+        mutable std::string name_;
+
+        std::set<std::string> flags;    // flags
+        std::bitset<NUM_VPFLAGS> bitflags; // flags checked so often that things slow down due to string cmp
+    public:
+
+        int z_order;        // z-ordering, inferred from location, cached here
+        int list_order;     // Display order in vehicle interact display
+
+        bool has_flag( const std::string &flag ) const {
+            return flags.count( flag ) != 0;
+        }
+        bool has_flag( const vpart_bitflags flag ) const {
+            return bitflags.test( flag );
+        }
+        void set_flag( const std::string &flag );
+
+        static void load( JsonObject &jo );
+        static void check();
+        static void reset();
+
+        static const std::vector<const vpart_info *> &get_all();
 };
 
-struct vehicle_item_spawn
-{
+struct vehicle_item_spawn {
     point pos;
     int chance;
-    std::vector<std::string> item_ids;
+    /** Chance [0-100%] for items to spawn with ammo (plus default magazine if necesssary) */
+    int with_ammo = 0;
+    /** Chance [0-100%] for items to spawn with their default magazine (if any) */
+    int with_magazine = 0;
+    std::vector<itype_id> item_ids;
     std::vector<std::string> item_groups;
 };
 
@@ -128,8 +143,7 @@ struct vehicle_item_spawn
  * Prototype of a vehicle. The blueprint member is filled in during the finalizing, before that it
  * is a nullptr. Creating a new vehicle copies the blueprint vehicle.
  */
-struct vehicle_prototype
-{
+struct vehicle_prototype {
     std::string name;
     std::vector<std::pair<point, vpart_str_id> > parts;
     std::vector<vehicle_item_spawn> item_spawns;

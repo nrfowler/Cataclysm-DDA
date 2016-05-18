@@ -37,7 +37,6 @@
     [
       [ "stick", 1 ],
       [ "2x4", 1 ],
-      [ "mop", 1 ],
       [ "broom", 1 ]
     ]
   ]
@@ -140,7 +139,6 @@
     [
       [ "stick", 1 ],
       [ "broom", 1 ],
-      [ "mop", 1 ],
       [ "2x4", 1 ],
       [ "pool_cue", 1 ]
     ]
@@ -162,7 +160,6 @@
     [
       [ "stick", 1 ],
       [ "broom", 1 ],
-      [ "mop", 1 ],
       [ "2x4", 1 ],
       [ "pool_cue", 1 ]
     ]
@@ -192,7 +189,7 @@
   "skill_used": "fabrication",
   "difficulty": 0,
   "time": 1000,
-  "reversible": false,
+  "reversible": true,
   "autolearn": true,
   "qualities":[
     {"id":"CUT","level":1,"amount":1}
@@ -270,28 +267,6 @@
   ]
 },{
   "type" : "recipe",
-  "result": "blowgun",
-  "category": "CC_WEAPON",
-  "subcategory": "CSC_WEAPON_RANGED",
-  "skill_used": "fabrication",
-  "difficulty": 2,
-  "time": 5000,
-  "reversible": false,
-  "autolearn": true,
-  "qualities":[
-    {"id":"CUT","level":1,"amount":1}
-  ],
-  "components": [
-    [
-      [ "stick", 1 ],
-      [ "2x4", 1 ]
-    ],
-    [
-      [ "superglue", 1 ]
-    ]
-  ]
-},{
-  "type" : "recipe",
   "result": "spear_wood",
   "category": "CC_WEAPON",
   "subcategory": "CSC_WEAPON_PIERCING",
@@ -313,7 +288,6 @@
     [
       [ "stick", 1 ],
       [ "broom", 1 ],
-      [ "mop", 1 ],
       [ "2x4", 1 ],
       [ "pool_cue", 1 ],
       [ "pointy_stick", 1 ]
@@ -354,7 +328,6 @@
     [
       [ "stick", 1 ],
       [ "broom", 1 ],
-      [ "mop", 1 ],
       [ "2x4", 1 ],
       [ "pool_cue", 1 ],
       [ "pointy_stick", 1 ]
@@ -398,7 +371,6 @@
     [
       [ "stick", 1 ],
       [ "broom", 1 ],
-      [ "mop", 1 ],
       [ "2x4", 1 ],
       [ "pool_cue", 1 ]
     ],
@@ -477,7 +449,7 @@
       ["anvil", -1]
       ],
       [
-      ["forge", 50], ["char_forge", 10], ["oxy_torch", 10]
+      ["forge", 50], ["oxy_torch", 10]
       ]
       ],
   "components":
@@ -504,8 +476,7 @@
     [
       [ "stick", 1 ],
       [ "2x4", 1 ],
-      [ "broom", 1 ],
-      [ "mop", 1 ]
+      [ "broom", 1 ]
     ],
     [
       [ "spike", 1 ]
@@ -534,11 +505,9 @@
   "autolearn": true,
   "qualities":[
     {"id":"HAMMER","level":3,"amount":1},
-    {"id":"SAW_M","level":1,"amount":1}
+    {"id":"SAW_M","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ], "tools": [
-      [
-      [ "goggles_welding", -1 ]
-      ],
       [
       [ "oxy_torch", 4 ],
       [ "welder", 20 ],
@@ -710,7 +679,6 @@
     [
       [ "stick", 1 ],
       [ "2x4", 1 ],
-      [ "mop", 1 ],
       [ "broom", 1 ]
     ]
   ]
@@ -775,41 +743,6 @@
   ]
 },{
   "type" : "recipe",
-  "result": "molotov",
-  "category": "CC_WEAPON",
-  "subcategory": "CSC_WEAPON_EXPLOSIVE",
-  "skill_used": "fabrication",
-  "difficulty": 0,
-  "time": 500,
-  "reversible": false,
-  "autolearn": true,
-  "components": [
-    [
-      [ "rag", 1 ]
-    ],
-    [
-      [ "bottle_glass", 1 ],
-      [ "clay_canister", 1 ],
-      [ "flask_glass", 1 ]
-    ],
-    [
-      [ "whiskey", 14 ],
-      [ "single_malt_whiskey", 14 ],
-      [ "vodka", 14 ],
-      [ "rum", 14 ],
-      [ "tequila", 14 ],
-      [ "gin", 14 ],
-      [ "moonshine", 14 ],
-      [ "brandy", 14 ],
-      [ "chem_ethanol", 14],
-      [ "denat_alcohol", 14],
-      [ "lamp_oil", 400 ],
-      [ "gasoline", 600 ],
-      [ "diesel", 600 ]
-    ]
-  ]
-},{
-  "type" : "recipe",
   "result": "pipebomb",
   "category": "CC_WEAPON",
   "subcategory": "CSC_WEAPON_EXPLOSIVE",
@@ -849,9 +782,13 @@
   "reversible": false,
   "autolearn": false,
   "book_learn": [[ "textbook_anarch", 5 ] , [ "adv_chemistry", 6 ] , [ "textbook_chemistry", 6 ]],
-  "tools": [
+  "qualities":[
+    {"id":"CHEM","level":2,"amount":1}
+  ], "tools": [
     [
-      [ "chemistry_set", 25 ]
+      [ "hotplate", 25 ],
+      [ "toolset", 25 ],
+      [ "fire", -1 ]
     ]
   ],
   "components": [
@@ -867,7 +804,10 @@
     ],
     [
       [ "soap", 3 ],
-      [ "cooking_oil", 1 ]
+      [ "tallow", 2 ],
+      [ "tallow_tainted", 2 ],
+      [ "lard", 2 ],
+      [ "cooking_oil", 2 ]
     ]
   ]
 },{
@@ -901,11 +841,9 @@
   "autolearn": true,
   "book_learn": [[ "manual_shotgun", 2 ] , [ "manual_pistol", 2 ]],
   "qualities":[
-    {"id":"SAW_M_FINE","level":1,"amount":1}
+    {"id":"SAW_M_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ], "tools": [
-    [
-      [ "goggles_welding", -1 ]
-    ],
     [
       [ "oxy_torch", 6 ],
       [ "welder", 30 ],
@@ -918,7 +856,7 @@
   "components": [
     [
      [ "shotgun_s", 1 ],
-     [ "pipe_shotgun", 1 ] 
+     [ "pipe_shotgun", 1 ]
     ],
     [
       ["pipe", 3]
@@ -941,11 +879,9 @@
   "autolearn": true,
   "book_learn": [ [ "manual_pistol", 3 ]],
   "qualities":[
-    {"id":"SAW_M_FINE","level":1,"amount":1}
+    {"id":"SAW_M_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ], "tools": [
-    [
-      [ "goggles_welding", -1 ]
-    ],
     [
       [ "oxy_torch", 6 ],
       [ "welder", 30 ],
@@ -979,11 +915,9 @@
   "autolearn": true,
   "book_learn": [ [ "manual_pistol", 5 ]],
   "qualities":[
-    {"id":"SAW_M_FINE","level":1,"amount":1}
+    {"id":"SAW_M_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ], "tools": [
-    [
-      [ "goggles_welding", -1 ]
-    ],
     [
       [ "oxy_torch", 6 ],
       [ "welder", 30 ],
@@ -1283,7 +1217,7 @@
   "reversible": true,
   "decomp_learn": 2,
   "autolearn": false,
-  "book_learn" : [[ "recipe_bows", 2 ] , [ "manual_archery", 4] , [ "book_archery", 3], [ "scots_cookbook", 6 ]],
+  "book_learn" : [[ "recipe_bows", 2 ] , [ "manual_archery", 4] , [ "book_archery", 3], [ "scots_cookbook", 6 ], [ "textbook_armschina", 5 ]],
   "qualities" : [
     {"id":"SCREW","level":1,"amount":1},
     {"id":"WRENCH","level":1,"amount":1}
@@ -1564,11 +1498,9 @@
   "qualities":[
     {"id":"SAW_M_FINE","level":1,"amount":1},
     {"id":"SCREW_FINE","level":1,"amount":1},
-    {"id":"WRENCH_FINE","level":1,"amount":1}
+    {"id":"WRENCH_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ], "tools": [
-    [
-      ["goggles_welding", -1]
-    ],
     [
       ["oxy_torch", 60], ["welder", 300], ["welder_crude", 450], ["toolset", 450]
     ]
@@ -1585,6 +1517,64 @@
     [
       [ "2x4", 1 ]
     ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "rifle_3006",
+  "category": "CC_WEAPON",
+  "subcategory": "CSC_WEAPON_RANGED",
+  "skill_used": "mechanics",
+  "skills_required": [ "gun", 4 ],
+  "difficulty": 6,
+  "time": 240000,
+  "reversible": false,
+  "autolearn": true,
+  "qualities" : [ { "id" : "GLARE", "level" : 2 } ],
+  "tools": [
+    [
+      ["oxy_torch", 30],
+      ["welder", 150],
+      ["large_repairkit", 75],
+      ["small_repairkit", 150],
+      ["welder_crude", 225],
+      ["toolset", 225]
+    ]
+  ], "components": [
+    [ [ "pipe", 3 ] ],
+    [ [ "spring", 2 ] ],
+    [ [ "steel_chunk", 3 ] ],
+    [ [ "2x4", 1 ] ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "triple_launcher_simple",
+  "category": "CC_WEAPON",
+  "subcategory": "CSC_WEAPON_RANGED",
+  "skill_used": "mechanics",
+  "skills_required": [ "launcher", 4 ],
+  "difficulty": 7,
+  "time": 240000,
+  "reversible": false,
+  "autolearn": true,
+  "qualities":[
+    {"id":"SAW_M_FINE","level":1,"amount":1},
+    {"id":"SCREW_FINE","level":1,"amount":1},
+    {"id":"WRENCH_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
+  ], "tools": [
+    [
+      ["oxy_torch", 40],
+      ["welder", 200],
+      ["large_repairkit", 100],
+      ["small_repairkit", 200],
+      ["welder_crude", 300],
+      ["toolset", 300]
+    ]
+  ], "components": [
+    [ [ "pipe", 3 ] ],
+    [ [ "nail", 3 ] ],
+    [ [ "scrap", 3 ] ],
+    [ [ "2x4", 1 ] ]
   ]
 },{
   "type" : "recipe",
@@ -1750,26 +1740,23 @@
   "result": "acidbomb",
   "category": "CC_WEAPON",
   "subcategory": "CSC_WEAPON_EXPLOSIVE",
-  "skill_used": "cooking",
-  "difficulty": 1,
-  "time": 10000,
-  "reversible": false,
-  "autolearn": false,
-  "book_learn": [[ "textbook_gaswarfare", 4 ] , [ "adv_chemistry", 4 ] , [ "textbook_chemistry", 4 ]],
-  "tools": [
-    [
-      [ "hotplate", 5 ],
-      [ "toolset", 5 ]
-    ]
-  ],
+  "skill_used": "fabrication",
+  "difficulty": 0,
+  "time": 500,
+  "reversible": true,
+  "autolearn": true,
   "components": [
     [
+      [ "jar_glass", 1 ],
       [ "bottle_glass", 1 ],
-      [ "clay_canister", 1 ],
-      [ "flask_glass", 1 ]
+      [ "clay_canister", 2 ],
+      [ "flask_glass", 2 ]
     ],
     [
-      [ "acid", 4 ]
+      [ "acid", 2 ]
+    ],
+    [
+      [ "string_6", 1 ]
     ]
   ]
 },{
@@ -1815,6 +1802,40 @@
     ]
   ]
 },{
+  "type": "recipe",
+  "result": "nail_bomb",
+  "category": "CC_WEAPON",
+  "subcategory": "CSC_WEAPON_EXPLOSIVE",
+  "skill_used": "fabrication",
+  "skills_required": [ "mechanics", 1 ],
+  "difficulty": 2,
+  "time": 5000,
+  "reversible": true,
+  "autolearn": true,
+  "qualities" : [],
+  "components": [
+    [
+      [ "superglue", 1 ],
+      [ "duct_tape", 75 ],
+      [ "string_36", 1 ]
+    ],
+    [
+      [ "bottle_glass", 1 ],
+      [ "clay_canister", 1 ],
+      [ "flask_glass", 1 ]
+    ],
+    [
+      [ "nail", 40 ]
+    ],
+    [
+      [ "gunpowder", 72 ],
+      [ "chem_black_powder", 144 ],
+      [ "gasoline", 200 ],
+      [ "diesel", 200 ],
+      [ "shot_bird", 6 ]
+    ]
+  ]
+},{
   "type" : "recipe",
   "result": "combatsaw_off",
   "category": "CC_WEAPON",
@@ -1830,11 +1851,9 @@
     {"id":"HAMMER","level":2,"amount":1},
     {"id":"SAW_M","level":1,"amount":1},
     {"id":"SCREW","level":1,"amount":1},
-    {"id":"WRENCH","level":1,"amount":1}
+    {"id":"WRENCH","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ], "tools": [
-    [
-      [ "goggles_welding", -1 ]
-    ],
     [
       [ "oxy_torch", 20 ],
       [ "welder", 100],
@@ -1923,40 +1942,6 @@
     ],
     [
       [ "superglue", 1 ]
-    ]
-  ]
-},{
-  "type" : "recipe",
-  "result": "nx17",
-  "category": "CC_WEAPON",
-  "subcategory": "CSC_WEAPON_RANGED",
-  "skill_used": "electronics",
-  "skills_required": [ "mechanics", 5 ],
-  "difficulty": 8,
-  "time": 40000,
-  "reversible": true,
-  "decomp_learn": 9,
-  "autolearn": false,
-  "book_learn": [[ "recipe_lab_elec", 5 ]],
-  "qualities":[
-    {"id":"SAW_M_FINE","level":1,"amount":1}
-  ], "tools": [
-    [
-      [ "soldering_iron", 6 ],
-      [ "toolset", 6 ],
-      [ "small_repairkit", 6 ],
-      [ "large_repairkit", 3 ]
-    ]
-  ],
-  "components": [
-    [
-      [ "vacutainer", 1 ]
-    ],
-    [
-      [ "power_supply", 8 ]
-    ],
-    [
-      [ "amplifier", 8 ]
     ]
   ]
 },{
@@ -2074,81 +2059,6 @@
     ],
     [
       [ "cable", 5 ]
-    ]
-  ]
-},{
-  "type" : "recipe",
-  "result": "torch",
-  "category": "CC_WEAPON",
-  "subcategory": "CSC_WEAPON_BASHING",
-  "difficulty": 0,
-  "time": 2000,
-  "reversible": false,
-  "autolearn": true,
-  "components": [
-    [
-      [ "stick", 1 ],
-      [ "2x4", 1 ],
-      [ "splinter", 1 ],
-      [ "pool_cue", 1 ],
-      [ "torch_done", 1 ]
-    ],
-    [
-      [ "gasoline", 200 ],
-      [ "diesel", 200 ],
-      [ "lamp_oil", 100 ],
-      [ "vodka", 7 ],
-      [ "rum", 7 ],
-      [ "whiskey", 7 ],
-      [ "single_malt_whiskey", 7 ],
-      [ "tequila", 7 ],
-      [ "gin", 7 ],
-      [ "moonshine", 7 ],
-      [ "brandy", 7 ],
-      [ "chem_ethanol", 7],
-      [ "denat_alcohol", 7],
-      [ "tallow", 1 ],
-      [ "tallow_tainted", 1 ]
-    ],
-    [
-      [ "rag", 1 ]
-    ]
-  ]
-},{
-  "type" : "recipe",
-  "result": "battletorch",
-  "category": "CC_WEAPON",
-  "subcategory": "CSC_WEAPON_BASHING",
-  "difficulty": 0,
-  "time": 2000,
-  "reversible": true,
-  "autolearn": true,
-  "components": [
-    [
-      [ "bat", 1 ]
-    ],
-    [
-      [ "nomex", 5 ]
-    ],
-    [
-      [ "gasoline", 200 ],
-      [ "diesel", 200 ],
-      [ "lamp_oil", 100 ],
-      [ "vodka", 7 ],
-      [ "rum", 7 ],
-      [ "whiskey", 7 ],
-      [ "single_malt_whiskey", 7 ],
-      [ "tequila", 7 ],
-      [ "gin", 7 ],
-      [ "moonshine", 7 ],
-      [ "brandy", 7 ],
-      [ "chem_ethanol", 7],
-      [ "denat_alcohol", 7],
-      [ "tallow", 1 ],
-      [ "tallow_tainted", 1 ]
-    ],
-    [
-      [ "rag", 1 ]
     ]
   ]
 },{
@@ -2290,31 +2200,6 @@
   ]
 },{
   "type" : "recipe",
-  "result": "barrel_small",
-  "category": "CC_WEAPON",
-  "subcategory": "CSC_WEAPON_MODS",
-  "skill_used": "mechanics",
-  "skills_required": [ "gun", 1 ],
-  "difficulty": 6,
-  "time": 30000,
-  "reversible": false,
-  "autolearn": true,
-  "tools": [
-    [
-      [ "large_repairkit", 100 ],
-      [ "small_repairkit", 300 ]
-    ]
-  ],
-  "components": [
-    [
-      [ "scrap", 1 ]
-    ],
-    [
-      [ "pipe", 1 ]
-    ]
-  ]
-},{
-  "type" : "recipe",
   "result": "barrel_big",
   "category": "CC_WEAPON",
   "subcategory": "CSC_WEAPON_MODS",
@@ -2348,10 +2233,7 @@
   "autolearn": true,
   "tools": [
     [
-      [ "needle_bone", 4 ],
-      [ "needle_wood", 4 ],
-      [ "sewing_kit", 4 ],
-      [ "tailors_kit", 4 ]
+      [ "sewing_kit", 4 ]
     ]
   ],
   "components": [
@@ -2374,12 +2256,10 @@
   "qualities":[
     {"id":"HAMMER_FINE","level":1,"amount":1},
     {"id":"SAW_M_FINE","level":1,"amount":1},
-    {"id":"SCREW_FINE","level":1,"amount":1}
+    {"id":"SCREW_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ],
   "tools": [
-    [
-      [ "goggles_welding", -1 ]
-    ],
     [
       [ "oxy_torch", 3 ],
       [ "welder", 15 ],
@@ -2414,12 +2294,10 @@
   "qualities":[
     {"id":"HAMMER_FINE","level":1,"amount":1},
     {"id":"SAW_M_FINE","level":1,"amount":1},
-    {"id":"SCREW_FINE","level":1,"amount":1}
+    {"id":"SCREW_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ],
   "tools": [
-    [
-      [ "goggles_welding", -1 ]
-    ],
     [
       [ "oxy_torch", 3 ],
       [ "welder", 15 ],
@@ -2482,12 +2360,10 @@
   "qualities":[
     {"id":"HAMMER_FINE","level":1,"amount":1},
     {"id":"SAW_M_FINE","level":1,"amount":1},
-    {"id":"SCREW_FINE","level":1,"amount":1}
+    {"id":"SCREW_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ],
   "tools": [
-    [
-      [ "goggles_welding", -1 ]
-    ],
     [
       [ "oxy_torch", 2 ],
       [ "welder", 10 ],
@@ -2528,68 +2404,6 @@
     [
       [ "scrap", 3 ],
       [ "steel_chunk", 1 ]
-    ]
-  ]
-},{
-  "type" : "recipe",
-  "result": "clip",
-  "category": "CC_WEAPON",
-  "subcategory": "CSC_WEAPON_MODS",
-  "skill_used": "mechanics",
-  "skills_required": [[ "gun", 3 ]],
-  "difficulty": 6,
-  "time": 20000,
-  "reversible": false,
-  "autolearn": true,
-  "book_learn": [[ "manual_mechanics", 2 ] , [ "manual_pistol", 3] , [ "manual_shotgun", 4] , [ "manual_shotgun", 3] , [ "manual_smg", 3] , [ "manual_rifle", 3]],
-  "qualities":[
-    {"id":"HAMMER_FINE","level":1,"amount":1},
-    {"id":"SCREW_FINE","level":1,"amount":1}
-  ],
-  "tools": [
-    [
-      [ "large_repairkit", 20 ],
-      [ "small_repairkit", 60 ]
-    ]
-  ],
-  "components": [
-    [
-      [ "scrap", 3 ],
-      [ "steel_chunk", 1 ]
-    ],
-    [
-      [ "spring", 1 ]
-    ]
-  ]
-},{
-  "type" : "recipe",
-  "result": "clip2",
-  "category": "CC_WEAPON",
-  "subcategory": "CSC_WEAPON_MODS",
-  "skill_used": "mechanics",
-  "skills_required": [[ "gun", 4 ]],
-  "difficulty": 7,
-  "time": 45000,
-  "reversible": false,
-  "autolearn": true,
-  "book_learn": [[ "manual_mechanics", 4 ] , [ "manual_pistol", 5] , [ "manual_shotgun", 6] , [ "manual_smg", 5] , [ "manual_rifle", 5]],
-  "qualities":[
-    {"id":"HAMMER_FINE","level":1,"amount":1},
-    {"id":"SCREW_FINE","level":1,"amount":1}
-  ],
-  "tools": [
-    [
-      [ "large_repairkit", 50 ],
-      [ "small_repairkit", 140 ]
-    ]
-  ],
-  "components": [
-    [
-      [ "scrap", 6 ],
-      [ "steel_chunk", 2 ]
-    ],
-    [
-      [ "spring", 2 ]
     ]
   ]
 },{
@@ -2771,12 +2585,10 @@
   "qualities":[
     {"id":"HAMMER_FINE","level":1,"amount":1},
     {"id":"SAW_M_FINE","level":1,"amount":1},
-    {"id":"SCREW_FINE","level":1,"amount":1}
+    {"id":"SCREW_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ],
   "tools": [
-    [
-      [ "goggles_welding", -1 ]
-    ],
     [
       [ "oxy_torch", 3 ],
       [ "welder", 15 ],
@@ -2855,12 +2667,10 @@
   "qualities":[
     {"id":"HAMMER_FINE","level":1,"amount":1},
     {"id":"SAW_M_FINE","level":1,"amount":1},
-    {"id":"SCREW_FINE","level":1,"amount":1}
+    {"id":"SCREW_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ],
   "tools": [
-    [
-      [ "goggles_welding", -1 ]
-    ],
     [
       [ "oxy_torch", 3 ],
       [ "welder", 15 ],
@@ -2881,37 +2691,6 @@
     ],
     [
       [ "spring", 2 ]
-    ]
-  ]
-},{
-  "type" : "recipe",
-  "result": "spare_mag",
-  "category": "CC_WEAPON",
-  "subcategory": "CSC_WEAPON_MODS",
-  "skill_used": "fabrication",
-  "skills_required": [[ "gun", 2 ]],
-  "difficulty": 4,
-  "time": 15000,
-  "reversible": false,
-  "autolearn": true,
-  "book_learn": [[ "manual_fabrication", 2 ] , [ "manual_pistol", 3] , [ "manual_shotgun", 4] , [ "manual_smg", 3] , [ "manual_rifle", 3]],
-  "qualities":[
-    {"id":"HAMMER_FINE","level":1,"amount":1},
-    {"id":"SCREW_FINE","level":1,"amount":1}
-  ],
-  "tools": [
-    [
-      [ "large_repairkit", 20 ],
-      [ "small_repairkit", 60 ]
-    ]
-  ],
-  "components": [
-    [
-      [ "scrap", 3 ],
-      [ "steel_chunk", 1 ]
-    ],
-    [
-      [ "spring", 1 ]
     ]
   ]
 },{
@@ -3137,10 +2916,8 @@
   "decomp_learn": 4,
   "autolearn": false,
   "book_learn": [[ "welding_book", 8 ], ["book_icef", 4]],
+  "qualities" : [ { "id" : "GLARE", "level" : 2 } ],
   "tools": [
-    [
-      ["goggles_welding", -1]
-    ],
     [
       [ "oxy_torch", 4 ],
       ["welder", 20],
@@ -3174,10 +2951,8 @@
   "decomp_learn": 4,
   "autolearn": false,
   "book_learn": [[ "welding_book", 8 ], ["book_icef", 4]],
+  "qualities" : [ { "id" : "GLARE", "level" : 2 } ],
   "tools": [
-  [
-    ["goggles_welding", -1]
-  ],
   [
     [ "oxy_torch", 4 ],
     ["welder", 20],
@@ -3211,10 +2986,8 @@
   "decomp_learn": 4,
   "autolearn": false,
   "book_learn": [[ "welding_book", 8 ], ["book_icef", 4]],
+  "qualities" : [ { "id" : "GLARE", "level" : 2 } ],
   "tools": [
-    [
-      ["goggles_welding", -1]
-    ],
     [
       [ "oxy_torch", 4 ],
       ["welder", 20],
@@ -3248,10 +3021,8 @@
   "decomp_learn": 4,
   "autolearn": false,
   "book_learn": [[ "welding_book", 8 ], ["book_icef", 4]],
+  "qualities" : [ { "id" : "GLARE", "level" : 2 } ],
   "tools": [
-    [
-      ["goggles_welding", -1]
-    ],
     [
       [ "oxy_torch", 4 ],
       ["welder", 20],
@@ -3313,11 +3084,9 @@
   "qualities":[
     {"id":"SAW_M_FINE","level":1,"amount":1},
     {"id":"SCREW_FINE","level":1,"amount":1},
-    {"id":"WRENCH_FINE","level":1,"amount":1}
+    {"id":"WRENCH_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ], "tools": [
-    [
-      ["goggles_welding", -1]
-    ],
     [
       ["oxy_torch", 30], ["welder", 150], ["welder_crude", 225], ["toolset", 225]
     ]
@@ -3357,11 +3126,9 @@
     {"id":"SAW_M","level":1,"amount":1},
     {"id":"SAW_M_FINE","level":1,"amount":1},
     {"id":"SCREW_FINE","level":1,"amount":1},
-    {"id":"WRENCH_FINE","level":1,"amount":1}
+    {"id":"WRENCH_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ], "tools": [
-    [
-      ["goggles_welding", -1]
-    ],
     [
       ["oxy_torch", 40], ["welder", 200], ["welder_crude", 300], ["toolset", 300]
     ]
@@ -3400,11 +3167,9 @@
   "qualities":[
     {"id":"SAW_M_FINE","level":1,"amount":1},
     {"id":"SCREW_FINE","level":1,"amount":1},
-    {"id":"WRENCH_FINE","level":1,"amount":1}
+    {"id":"WRENCH_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ], "tools": [
-    [
-      ["goggles_welding", -1]
-    ],
     [
       ["oxy_torch", 60], ["welder", 300], ["welder_crude", 450], ["toolset", 450]
     ]
@@ -3444,11 +3209,9 @@
   "qualities":[
     {"id":"SAW_M_FINE","level":1,"amount":1},
     {"id":"SCREW_FINE","level":1,"amount":1},
-    {"id":"WRENCH_FINE","level":1,"amount":1}
+    {"id":"WRENCH_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ], "tools": [
-    [
-      ["goggles_welding", -1]
-    ],
     [
       ["oxy_torch", 40], ["welder", 200], ["welder_crude", 300], ["toolset", 300]
     ]
@@ -3488,11 +3251,9 @@
   "qualities":[
     {"id":"SAW_M_FINE","level":1,"amount":1},
     {"id":"SCREW_FINE","level":1,"amount":1},
-    {"id":"WRENCH_FINE","level":1,"amount":1}
+    {"id":"WRENCH_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ], "tools": [
-    [
-      ["goggles_welding", -1]
-    ],
     [
       ["oxy_torch", 20], ["welder", 100], ["welder_crude", 150], ["toolset", 150]
     ]
@@ -3523,11 +3284,9 @@
   "qualities":[
     {"id":"SAW_M_FINE","level":1,"amount":1},
     {"id":"SCREW_FINE","level":1,"amount":1},
-    {"id":"WRENCH_FINE","level":1,"amount":1}
+    {"id":"WRENCH_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ], "tools": [
-    [
-      ["goggles_welding", -1]
-    ],
     [
       ["oxy_torch", 60], ["welder", 300], ["welder_crude", 450], ["toolset", 450]
     ]
@@ -3675,7 +3434,6 @@
       ],
       [
       ["forge", 300],
-      [ "char_forge", 60],
       [ "oxy_torch", 60]
       ]
       ],
@@ -3717,7 +3475,7 @@
       ["swage", -1]
       ],
       [
-      ["forge", 200], ["char_forge", 40], [ "oxy_torch", 40]
+      ["forge", 200], [ "oxy_torch", 40]
       ]
       ],
   "components":
@@ -3762,7 +3520,7 @@
       ["swage", -1]
       ],
       [
-      ["forge", 200], ["char_forge", 40], [ "oxy_torch", 40]
+      ["forge", 200], [ "oxy_torch", 40]
       ]
       ],
   "components":
@@ -3804,7 +3562,7 @@
       ["swage", -1]
       ],
       [
-      ["forge", 300], ["char_forge", 60], [ "oxy_torch", 60]
+      ["forge", 300], [ "oxy_torch", 60]
       ]
       ],
   "components":
@@ -3846,7 +3604,7 @@
       ["swage", -1]
       ],
       [
-      ["forge", 300], ["char_forge", 60], [ "oxy_torch", 60]
+      ["forge", 300], [ "oxy_torch", 60]
       ]
       ],
   "components":
@@ -3888,7 +3646,7 @@
       ["swage", -1]
       ],
       [
-      ["forge", 200], ["char_forge", 40], [ "oxy_torch", 40]
+      ["forge", 200], [ "oxy_torch", 40]
       ]
       ],
   "components":
@@ -3930,7 +3688,7 @@
       ["swage", -1]
       ],
       [
-      ["forge", 400], ["char_forge", 80], [ "oxy_torch", 80]
+      ["forge", 400], [ "oxy_torch", 80]
       ]
       ],
   "components":
@@ -3974,7 +3732,8 @@
   "components":
     [
      [
-     [ "charcoal", 10 ]
+     ["charcoal", 50],
+     ["coal_lump", 50]
      ],
      [
      [ "plasma", 20 ]
@@ -4009,7 +3768,7 @@
       ["swage", -1]
       ],
       [
-      ["forge", 200], ["char_forge", 40], [ "oxy_torch", 40]
+      ["forge", 200], [ "oxy_torch", 40]
       ]
       ],
   "components":
@@ -4044,7 +3803,7 @@
       ["anvil", -1]
       ],
       [
-      ["forge", 150], ["char_forge", 30], [ "oxy_torch", 30]
+      ["forge", 150], [ "oxy_torch", 30]
       ]
       ],
   "components":
@@ -4118,7 +3877,8 @@
   "components":
     [
      [
-     [ "charcoal", 5 ]
+     ["charcoal", 25],
+     ["coal_lump", 25]
      ],
      [
      [ "plasma", 10 ]
@@ -4159,7 +3919,8 @@
   "components":
     [
      [
-     [ "charcoal", 10 ]
+     ["charcoal", 50],
+     ["coal_lump", 50]
      ],
      [
      [ "plasma", 20 ]
@@ -4199,7 +3960,8 @@
   "components":
     [
      [
-     [ "charcoal", 20 ]
+     ["charcoal", 100],
+     ["coal_lump", 100]
      ],
      [
      [ "plasma", 40 ]
@@ -4238,7 +4000,8 @@
   "components":
     [
      [
-     [ "charcoal", 20 ]
+     ["charcoal", 100],
+     ["coal_lump", 100]
      ],
      [
      [ "plasma", 40 ]
@@ -4277,7 +4040,8 @@
   "components":
     [
      [
-     [ "charcoal", 15 ]
+     ["charcoal", 75],
+     ["coal_lump", 75]
      ],
      [
      [ "plasma", 30 ]
@@ -4316,7 +4080,8 @@
   "components":
     [
      [
-     [ "charcoal", 30 ]
+     ["charcoal", 150],
+     ["coal_lump", 150]
      ],
      [
      [ "plasma", 60 ]
@@ -4355,7 +4120,8 @@
   "components":
     [
      [
-     [ "charcoal", 15 ]
+     ["charcoal", 75],
+     ["coal_lump", 75]
      ],
      [
      [ "plasma", 30 ]
@@ -4394,7 +4160,8 @@
   "components":
     [
      [
-     [ "charcoal", 80 ]
+     ["charcoal", 400],
+     ["coal_lump", 400]
      ],
      [
      [ "plasma", 160 ]
@@ -4430,7 +4197,7 @@
       ["swage", -1]
       ],
       [
-      ["forge", 400], ["char_forge", 80], [ "oxy_torch", 80]
+      ["forge", 400], [ "oxy_torch", 80]
       ]
       ],
   "components":
@@ -4470,7 +4237,7 @@
       ["swage", -1]
       ],
       [
-      ["forge", 350], ["char_forge", 70], [ "oxy_torch", 70]
+      ["forge", 350], [ "oxy_torch", 70]
       ]
       ],
   "components":
@@ -4510,7 +4277,7 @@
       ["swage", -1]
       ],
       [
-      ["forge", 200], ["char_forge", 40], [ "oxy_torch", 40]
+      ["forge", 200], [ "oxy_torch", 40]
       ]
       ],
   "components":
@@ -4569,7 +4336,7 @@
       ["crucible_clay", -1]
      ],
      [
-      ["forge", 150], ["char_forge", 30], [ "oxy_torch", 30]
+      ["forge", 150], [ "oxy_torch", 30]
      ]
     ],
   "components":
@@ -4608,7 +4375,7 @@
       ["crucible_clay", -1]
      ],
      [
-      ["forge", 400], ["char_forge", 80], [ "oxy_torch", 80]
+      ["forge", 400], [ "oxy_torch", 80]
      ]
     ],
   "components":
@@ -4647,7 +4414,7 @@
       ["crucible_clay", -1]
      ],
      [
-      ["forge", 450], ["char_forge", 90], [ "oxy_torch", 90]
+      ["forge", 450], [ "oxy_torch", 90]
      ]
     ],
   "components":
@@ -4688,7 +4455,7 @@
       ["swage", -1]
      ],
      [
-      ["forge", 300], ["char_forge", 60], [ "oxy_torch", 60]
+      ["forge", 300], [ "oxy_torch", 60]
      ]
     ],
   "components":
@@ -4729,7 +4496,7 @@
       ["swage", -1]
      ],
      [
-      ["forge", 350], ["char_forge", 70], [ "oxy_torch", 70]
+      ["forge", 350], [ "oxy_torch", 70]
      ]
     ],
   "components": [
@@ -4778,6 +4545,7 @@
   "time": 1000,
   "reversible": true,
   "autolearn": true,
+  "flags": ["BLIND_EASY"],
   "components": [
     [
       [ "rock", 1 ]
@@ -5046,7 +4814,6 @@
       ["toolset", 7],
       ["fire", -1],
       ["forge", 7],
-      ["char_forge", 2],
       ["oxy_torch", 2]
       ]
   ],
@@ -5087,7 +4854,6 @@
       ],
       [
       ["forge", 300],
-      [ "char_forge", 60],
       [ "oxy_torch", 60]
       ]
       ],
@@ -5107,6 +4873,45 @@
       [ "leather", 1 ]
      ]
     ]
+},{
+  "type" : "recipe",
+  "result": "arming_sword",
+  "category": "CC_WEAPON",
+  "subcategory": "CSC_WEAPON_CUTTING",
+  "skill_used": "fabrication",
+  "difficulty": 8,
+  "time": 480000,
+  "reversible": false,
+  "autolearn": false,
+  "book_learn": [[ "textbook_weapwest", 7 ], [ "scots_cookbook", 9 ]],
+  "qualities": [
+    {"id":"HAMMER","level":3,"amount":1}
+  ],
+  "tools": [
+    [ [ "tongs", -1 ] ],
+    [ [ "chisel", -1 ] ],
+    [ [ "anvil", -1 ] ],
+    [ [ "swage", -1 ] ],
+    [
+      [ "forge", 425 ],
+      [ "oxy_torch", 85 ]
+    ]
+  ],
+  "components": [
+    [
+      [ "steel_lump", 3 ],
+      [ "steel_chunk", 12 ],
+      [ "scrap", 36 ]
+    ],
+    [
+      [ "2x4", 1 ],
+      [ "stick", 2 ]
+    ],
+    [
+      [ "fur", 1 ],
+      [ "leather", 1 ]
+    ]
+  ]
 },{
   "type" : "recipe",
   "result": "broadsword",
@@ -5136,7 +4941,6 @@
       ],
       [
       ["forge", 400],
-      [ "char_forge", 80],
       [ "oxy_torch", 80]
       ]
       ],
@@ -5185,7 +4989,6 @@
       ],
       [
       ["forge", 400],
-      [ "char_forge", 80],
       [ "oxy_torch", 80]
       ]
       ],
@@ -5234,7 +5037,6 @@
       ],
       [
       ["forge", 350],
-      [ "char_forge", 70],
       [ "oxy_torch", 70]
       ]
       ],
@@ -5279,7 +5081,6 @@
       ],
       [
       ["forge", 450],
-      [ "char_forge", 90],
       [ "oxy_torch", 90]
       ]
       ],
@@ -5299,6 +5100,168 @@
       [ "leather", 2 ]
      ]
     ]
+},{
+  "type" : "recipe",
+  "result": "jian",
+  "category": "CC_WEAPON",
+  "subcategory": "CSC_WEAPON_CUTTING",
+  "skill_used": "fabrication",
+  "difficulty": 8,
+  "time": 480000,
+  "reversible": false,
+  "autolearn": false,
+  "book_learn": [[ "textbook_armschina", 7 ]],
+  "qualities": [
+    {"id":"HAMMER","level":3,"amount":1}
+  ],
+  "tools": [
+    [ [ "tongs", -1 ] ],
+    [ [ "chisel", -1 ] ],
+    [ [ "anvil", -1 ] ],
+    [ [ "swage", -1 ] ],
+    [
+      [ "forge", 425 ],
+      [ "oxy_torch", 85 ]
+    ]
+  ],
+  "components": [
+    [
+      [ "steel_lump", 3 ],
+      [ "steel_chunk", 12 ],
+      [ "scrap", 36 ]
+    ],
+    [
+      [ "2x4", 1 ],
+      [ "stick", 2 ]
+    ],
+    [
+      [ "fur", 1 ],
+      [ "leather", 1 ]
+    ],
+    [
+      [ "thread", 100 ],
+      [ "sinew", 100 ],
+      [ "plant_fibre", 100 ],
+      [ "yarn", 100 ]
+   ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "scimitar",
+  "category": "CC_WEAPON",
+  "subcategory": "CSC_WEAPON_CUTTING",
+  "skill_used": "fabrication",
+  "difficulty": 8,
+  "time": 420000,
+  "reversible": false,
+  "autolearn": false,
+  "book_learn": [[ "textbook_armschina", 7 ]],
+  "qualities": [
+    {"id":"HAMMER","level":3,"amount":1}
+  ],
+  "tools": [
+    [ [ "tongs", -1 ] ],
+    [ [ "chisel", -1 ] ],
+    [ [ "anvil", -1 ] ],
+    [ [ "swage", -1 ] ],
+    [
+      [ "forge", 450 ],
+      [ "oxy_torch", 90 ]
+    ]
+  ],
+  "components": [
+    [
+      [ "steel_lump", 3 ],
+      [ "steel_chunk", 12 ],
+      [ "scrap", 36 ]
+    ],
+    [
+      [ "2x4", 1 ],
+      [ "stick", 2 ]
+    ],
+    [
+      [ "fur", 1 ],
+      [ "leather", 1 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "estoc",
+  "category": "CC_WEAPON",
+  "subcategory": "CSC_WEAPON_CUTTING",
+  "skill_used": "fabrication",
+  "difficulty": 8,
+  "time": 490000,
+  "reversible": false,
+  "autolearn": false,
+  "book_learn": [[ "textbook_weapwest", 7 ], [ "scots_cookbook", 9 ]],
+  "qualities": [
+    {"id":"HAMMER","level":3,"amount":1}
+  ],
+  "tools": [
+    [ [ "tongs", -1 ] ],
+    [ [ "chisel", -1 ] ],
+    [ [ "anvil", -1 ] ],
+    [ [ "swage", -1 ] ],
+    [
+      [ "forge", 450 ],
+      [ "oxy_torch", 90 ]
+    ]
+  ],
+  "components": [
+    [
+      [ "steel_lump", 4 ],
+      [ "steel_chunk", 16 ],
+      [ "scrap", 48 ]
+    ],
+    [
+      [ "2x4", 1 ],
+      [ "stick", 2 ]
+    ],
+    [
+      [ "fur", 1 ],
+      [ "leather", 1 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "longsword",
+  "category": "CC_WEAPON",
+  "subcategory": "CSC_WEAPON_CUTTING",
+  "skill_used": "fabrication",
+  "difficulty": 8,
+  "time": 420000,
+  "reversible": false,
+  "autolearn": false,
+  "book_learn": [[ "textbook_weapwest", 7 ], [ "scots_cookbook", 9 ]],
+  "qualities": [
+    {"id":"HAMMER","level":3,"amount":1}
+  ],
+  "tools": [
+    [ [ "tongs", -1 ] ],
+    [ [ "chisel", -1 ] ],
+    [ [ "anvil", -1 ] ],
+    [ [ "swage", -1 ] ],
+    [
+      [ "forge", 450 ],
+      [ "oxy_torch", 90 ]
+    ]
+  ],
+  "components": [
+    [
+      [ "steel_lump", 4 ],
+      [ "steel_chunk", 16 ],
+      [ "scrap", 48 ]
+    ],
+    [
+      [ "2x4", 1 ],
+      [ "stick", 2 ]
+    ],
+    [
+      [ "fur", 1 ],
+      [ "leather", 1 ]
+    ]
+  ]
 },{
   "type" : "recipe",
   "result": "zweihander",
@@ -5328,7 +5291,6 @@
       ],
       [
       ["forge", 450],
-      [ "char_forge", 90],
       [ "oxy_torch", 90]
       ]
       ],
@@ -5371,9 +5333,10 @@
       [ "log", 1 ]
      ],
      [
-      [ "tallow", 1 ],
-      [ "cooking_oil", 1 ],
-      [ "lamp_oil", 200 ]
+      [ "tallow", 2 ],
+      [ "tallow_tainted", 2 ],
+      [ "cooking_oil", 2 ],
+      [ "lamp_oil", 250 ]
      ],
      [
       [ "fur", 2 ],
@@ -5415,7 +5378,6 @@
       ],
       [
       ["forge", 310],
-      [ "char_forge", 70],
       [ "oxy_torch", 70]
       ]
       ],
@@ -5464,7 +5426,6 @@
       ],
       [
       ["forge", 400],
-      [ "char_forge", 80],
       [ "oxy_torch", 80]
       ]
       ],
@@ -5513,7 +5474,6 @@
       ],
       [
       ["forge", 450],
-      [ "char_forge", 90],
       [ "oxy_torch", 90]
       ]
       ],
@@ -5561,7 +5521,7 @@
       ["swage", -1]
       ],
       [
-      ["forge", 500], ["char_forge", 100], ["oxy_torch", 100]
+      ["forge", 500], ["oxy_torch", 100]
       ]
       ],
   "components":
@@ -5605,7 +5565,7 @@
       ["anvil", -1]
       ],
       [
-      ["forge", 200], ["char_forge", 40], ["oxy_torch", 40]
+      ["forge", 200], ["oxy_torch", 40]
       ]
       ],
   "components":
@@ -5652,7 +5612,7 @@
       ["swage", -1]
       ],
       [
-      ["forge", 300], ["char_forge", 60], ["oxy_torch", 60]
+      ["forge", 300], ["oxy_torch", 60]
       ]
       ],
   "components":
@@ -5700,7 +5660,6 @@
       ],
       [
       ["forge", 350],
-      [ "char_forge", 70],
       [ "oxy_torch", 70]
       ]
       ],
@@ -5765,7 +5724,7 @@
       ["anvil", -1]
     ],
     [
-      ["forge", 150], ["char_forge", 30], ["oxy_torch", 30]
+      ["forge", 150], ["oxy_torch", 30]
       ]
     ],
   "components": [
@@ -5804,7 +5763,7 @@
       ["swage", -1]
       ],
       [
-      ["forge", 250], ["char_forge", 50], ["oxy_torch", 50]
+      ["forge", 250], ["oxy_torch", 50]
       ]
       ],
   "components":
@@ -5944,7 +5903,6 @@
       ],
       [
         ["forge", 400],
-        [ "char_forge", 80],
         [ "oxy_torch", 80]
       ]
     ],
@@ -5995,7 +5953,6 @@
       ],
       [
         ["forge", 350],
-        [ "char_forge", 70],
         [ "oxy_torch", 70]
       ]
     ],
@@ -6046,7 +6003,6 @@
       ],
       [
         ["forge", 400],
-        ["char_forge", 80],
         [ "oxy_torch", 80]
       ]
     ],
@@ -6299,7 +6255,7 @@
       ["anvil", -1]
      ],
      [
-      ["forge", 50], ["char_forge", 10], [ "oxy_torch", 10]
+      ["forge", 50], [ "oxy_torch", 10]
      ]
     ],
   "components":
@@ -6335,7 +6291,7 @@
       ["anvil", -1]
      ],
      [
-      ["forge", 100], ["char_forge", 20], [ "oxy_torch", 20]
+      ["forge", 100], [ "oxy_torch", 20]
      ]
     ],
   "components":
@@ -6346,6 +6302,200 @@
      [ "scrap", 12 ]
     ]
    ]
+},{
+  "type" : "recipe",
+  "result": "qiang",
+  "category": "CC_WEAPON",
+  "subcategory": "CSC_WEAPON_CUTTING",
+  "skill_used": "fabrication",
+  "difficulty": 7,
+  "time": 460000,
+  "reversible": false,
+  "autolearn": false,
+  "book_learn": [[ "textbook_armschina", 6 ]],
+  "qualities" : [
+    {"id":"HAMMER","level":3,"amount":1}
+  ],
+  "tools": [
+    [ [ "tongs", -1 ]  ],
+    [ [ "chisel", -1 ] ],
+    [ [ "anvil", -1 ]  ],
+    [ [ "swage", -1 ] ],
+    [
+      [ "forge", 450 ],
+      [ "oxy_torch", 90 ]
+    ]
+  ],
+  "components": [
+    [
+      [ "steel_lump", 1 ],
+      [ "steel_chunk", 4 ],
+      [ "scrap", 12 ]
+    ],
+    [
+      [ "2x4", 3 ],
+      [ "stick", 6 ]
+    ],
+    [
+      [ "fur", 2 ],
+      [ "leather", 2 ]
+    ],
+    [
+      [ "thread", 100 ],
+      [ "sinew", 100 ],
+      [ "plant_fibre", 100 ],
+      [ "yarn", 100 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "halberd",
+  "category": "CC_WEAPON",
+  "subcategory": "CSC_WEAPON_CUTTING",
+  "skill_used": "fabrication",
+  "difficulty": 7,
+  "time": 360000,
+  "reversible": false,
+  "autolearn": false,
+  "book_learn": [[ "textbook_weapwest", 6 ]],
+  "qualities":[
+    {"id":"HAMMER","level":3,"amount":1}
+  ],
+  "tools": [
+    [ [ "tongs", -1 ] ],
+    [ [ "chisel", -1 ] ],
+    [ [ "anvil", -1 ] ],
+    [ [ "swage", -1 ] ],
+    [
+      [ "forge", 350 ],
+      [ "oxy_torch", 70 ]
+    ]
+  ],
+  "components": [
+    [
+      [ "steel_lump", 3 ],
+      [ "steel_chunk", 12 ],
+      [ "scrap", 36 ]
+    ],
+    [
+      [ "2x4", 4 ],
+      [ "stick", 8 ]
+    ],
+    [
+      [ "fur", 2 ],
+      [ "leather", 2 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "glaive",
+  "category": "CC_WEAPON",
+  "subcategory": "CSC_WEAPON_CUTTING",
+  "skill_used": "fabrication",
+  "difficulty": 7,
+  "time": 460000,
+  "reversible": false,
+  "autolearn": false,
+  "book_learn": [[ "textbook_weapwest", 6 ]],
+  "qualities" : [
+    {"id":"HAMMER","level":3,"amount":1}
+  ],
+  "tools": [
+    [ [ "tongs", -1 ] ],
+    [ [ "chisel", -1 ] ],
+    [ [ "anvil", -1 ] ],
+    [ [ "swage", -1 ] ],
+    [
+      [ "forge", 450],
+      [ "oxy_torch", 90]
+    ]
+  ],
+  "components": [
+    [
+     [ "steel_lump", 2 ],
+     [ "steel_chunk", 8 ],
+     [ "scrap", 24 ]
+    ],
+    [
+      [ "2x4", 3 ],
+      [ "stick", 6 ]
+    ],
+    [
+      [ "fur", 2 ],
+      [ "leather", 2 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "naginata",
+  "category": "CC_WEAPON",
+  "subcategory": "CSC_WEAPON_CUTTING",
+  "skill_used": "fabrication",
+  "difficulty": 7,
+  "time": 460000,
+  "reversible": false,
+  "autolearn": false,
+  "book_learn": [[ "textbook_weapeast", 6 ]],
+  "qualities" : [
+    {"id":"HAMMER","level":3,"amount":1}
+  ],
+  "tools": [
+    [ [ "tongs", -1 ] ],
+    [ [ "chisel", -1 ] ],
+    [ [ "anvil", -1 ] ],
+    [ [ "swage", -1 ] ],
+    [
+      [ "forge", 450 ],
+      [ "oxy_torch", 90 ]
+    ]
+  ],
+  "components": [
+    [
+      [ "steel_lump", 2 ],
+      [ "steel_chunk", 8 ],
+      [ "scrap", 24 ]
+    ],
+    [
+      [ "2x4", 3 ],
+      [ "stick", 6 ]
+    ],
+    [
+      [ "fur", 2 ],
+      [ "leather", 2 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "naginata",
+  "id_suffix": "reforged",
+  "category": "CC_WEAPON",
+  "subcategory": "CSC_WEAPON_CUTTING",
+  "skill_used": "fabrication",
+  "difficulty": 7,
+  "time": 46000,
+  "reversible": false,
+  "autolearn": false,
+  "book_learn": [[ "textbook_weapeast", 6 ]],
+  "qualities" : [
+    {"id":"HAMMER","level":3,"amount":1}
+  ],
+  "tools": [
+    [ [ "tongs", -1 ] ],
+    [ [ "chisel", -1 ] ],
+    [ [ "swage", -1 ] ],
+    [ [ "anvil", -1 ] ],
+    [
+      [ "forge", 100 ],
+      [ "oxy_torch", 20 ]
+    ]
+  ],
+  "components": [
+    [ [ "katana", 1 ] ],
+    [
+      [ "2x4", 2 ],
+      [ "stick", 4 ]
+    ]
+  ]
 },{
   "type" : "recipe",
   "result": "spear_survivor",
@@ -6374,7 +6524,7 @@
       ["anvil", -1]
      ],
      [
-      ["forge", 100], ["char_forge", 20], [ "oxy_torch", 20]
+      ["forge", 100], [ "oxy_torch", 20]
      ]
     ],
   "components": [
@@ -6434,11 +6584,9 @@
   "autolearn": true,
   "qualities":[
     {"id":"SAW_M_FINE","level":1,"amount":1},
-    {"id":"SCREW_FINE","level":1,"amount":1}
+    {"id":"SCREW_FINE","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ], "tools": [
-    [
-      [ "goggles_welding", -1 ]
-    ],
     [
       [ "oxy_torch", 6 ],
       [ "welder", 30 ],
@@ -6536,7 +6684,7 @@
 [ "welder_crude", 30 ],
 [ "toolset", 20 ],
 [ "soldering_iron", 30 ]
-] 
+]
 ],
 "components": [
 [
@@ -6602,7 +6750,6 @@
     [
       [ "chem_hmtd", 200 ]
     ],
-
     [
       [ "string_36", 5 ],
       [ "string_6", 20 ]
@@ -6677,11 +6824,9 @@
 "book_learn": [[ "manual_launcher", 7 ]],
 "qualities":[
 {"id":"HAMMER","level":3,"amount":1},
-{"id":"SAW_M","level":1,"amount":1}
+{"id":"SAW_M","level":1,"amount":1},
+{ "id" : "GLARE", "level" : 2 }
 ], "tools": [
-[
-[ "goggles_welding", -1 ]
-],
 [
 [ "oxy_torch", 6 ],
 [ "welder", 30 ],
@@ -6722,7 +6867,8 @@
       {"id":"SAW_M_FINE","level":1,"amount":1},
       {"id":"SCREW_FINE","level":1,"amount":1},
       {"id":"WRENCH_FINE","level":1,"amount":1},
-      {"id":"HAMMER","level":3,"amount":1}
+      {"id":"HAMMER","level":3,"amount":1},
+      { "id" : "GLARE", "level" : 2 }
     ],
   "tools":
     [
@@ -6744,11 +6890,7 @@
       ],
       [
         ["forge", 400],
-        ["char_forge", 80],
         ["oxy_torch", 80]
-      ],
-      [
-        ["goggles_welding", -1]
       ],
       [
         ["oxy_torch", 100],
@@ -6823,19 +6965,17 @@
   "time": 180000,
   "reversible": false,
   "autolearn": true,
-  "qualities": 
+  "qualities":
   [
     {"id":"SAW_M","level":1,"amount":1},
     {"id":"SAW_M_FINE","level":1,"amount":1},
     {"id":"SCREW_FINE","level":1,"amount":1},
     {"id":"WRENCH_FINE","level":1,"amount":1},
-    {"id":"HAMMER","level":2,"amount":1}
+    {"id":"HAMMER","level":2,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ],
-  "tools": 
+  "tools":
   [
-    [
-      ["goggles_welding", -1]
-    ],
     [
       ["oxy_torch", 60],
       ["welder", 300],
@@ -6846,7 +6986,7 @@
       ["small_repairkit", 150],
       ["large_repairkit", 30]
     ]
-  ], "components": 
+  ], "components":
   [
     [["m2browning", 1]],
     [["2x4", 1]],
@@ -6870,13 +7010,11 @@
   "qualities":[
     {"id":"SAW_M_FINE","level":1,"amount":1},
     {"id":"SCREW_FINE","level":1,"amount":1},
-    {"id":"HAMMER","level":2,"amount":1}
+    {"id":"HAMMER","level":2,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ],
-  "tools": 
+  "tools":
   [
-    [
-      ["goggles_welding", -1]
-    ],
     [
       ["oxy_torch", 80],
       ["welder", 400],

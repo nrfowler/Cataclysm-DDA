@@ -12,12 +12,10 @@
   "autolearn": true,
   "qualities":[
     {"id":"HAMMER","level":2,"amount":1},
-    {"id":"SAW_M","level":1,"amount":1}
+    {"id":"SAW_M","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ],
   "tools": [
-    [
-      [ "goggles_welding", -1 ]
-    ],
     [
       [ "welder", 60 ],
       [ "welder_crude", 75 ],
@@ -45,7 +43,7 @@
       ["spring", 4]
     ],
 	[
-	  [ "metal_tank_small", 1]
+	  [ "jerrycan", 1]
 	],
 	[
 	  [ "leather", 4],
@@ -65,12 +63,10 @@
   "note": "sawing it down doesn't teach anything useful",
   "autolearn": true,
   "qualities":[
-    {"id":"SAW_M","level":1,"amount":1}
+    {"id":"SAW_M","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ],
   "tools": [
-    [
-      [ "goggles_welding", -1 ]
-    ],
     [
       [ "welder", 100 ],
       [ "welder_crude", 150 ],
@@ -96,16 +92,13 @@
   "time": 15000,
   "reversible": true,
   "autolearn": true,
+  "qualities" : [ { "id" : "GLARE", "level" : 2 } ],
   "tools": [
-    [
-      [ "goggles_welding", -1 ]
-    ],
     [
       [ "welder", 100 ],
       [ "welder_crude", 150 ],
       [ "toolset", 150 ],
       [ "forge", 100 ],
-      [ "char_forge", 20],
       [ "oxy_torch", 20]
     ]
   ],
@@ -216,7 +209,6 @@
       ],
       [
       [ "forge", 400],
-      [ "char_forge", 100],
       [ "oxy_torch", 200]
       ]
       ],
@@ -267,7 +259,6 @@
       ],
       [
       [ "forge", 400],
-      [ "char_forge", 100],
       [ "oxy_torch", 200]
       ]
       ],
@@ -315,7 +306,6 @@
       ],
       [
       [ "forge", 400],
-      [ "char_forge", 100],
       [ "oxy_torch", 200]
       ]
       ],
@@ -344,11 +334,9 @@
   "autolearn": true,
   "qualities":[
     {"id":"HAMMER","level":2,"amount":1},
-    {"id":"SAW_M","level":1,"amount":1}
+    {"id":"SAW_M","level":1,"amount":1},
+    { "id" : "GLARE", "level" : 2 }
   ], "tools": [
-    [
-      [ "goggles_welding", -1 ]
-    ],
 	[
       [ "welder", 100 ],
       [ "welder_crude", 200 ],

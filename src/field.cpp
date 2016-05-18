@@ -17,6 +17,20 @@
 
 const species_id FUNGUS( "FUNGUS" );
 
+const efftype_id effect_badpoison( "badpoison" );
+const efftype_id effect_blind( "blind" );
+const efftype_id effect_corroding( "corroding" );
+const efftype_id effect_fungus( "fungus" );
+const efftype_id effect_onfire( "onfire" );
+const efftype_id effect_poison( "poison" );
+const efftype_id effect_relax_gas( "relax_gas" );
+const efftype_id effect_sap( "sap" );
+const efftype_id effect_smoke( "smoke" );
+const efftype_id effect_stung( "stung" );
+const efftype_id effect_stunned( "stunned" );
+const efftype_id effect_teargas( "teargas" );
+const efftype_id effect_webbed( "webbed" );
+
 #define INBOUNDS(x, y) \
  (x >= 0 && x < SEEX * my_MAPSIZE && y >= 0 && y < SEEY * my_MAPSIZE)
 
@@ -668,39 +682,9 @@ bool map::process_fields_in_submap( submap *const current_submap,
 
                     case fd_acid:
                     {
-                        std::vector<item> contents;
                         const auto &ter = map_tile.get_ter_t();
-                        const auto &frn = map_tile.get_furn_t();
                         if( ter.has_flag( TFLAG_SWIMMABLE ) ) { // Dissipate faster in water
                             cur->setFieldAge( cur->getFieldAge() + 20 );
-                        }
-                        if( ter_furn_has_flag( ter, frn, TFLAG_SEALED ) &&
-                            !ter_furn_has_flag( ter, frn, TFLAG_ALLOW_FIELD_EFFECT ) ) {
-                            break;
-                        }
-                        auto items = i_at( p );
-                        for( auto melting = items.begin(); melting != items.end(); ) {
-                            // see DEVELOPER_FAQ.txt for how acid resistance is calculated
-                            int chance = melting->acid_resist();
-                            if (chance == 0) {
-                                melting->damage++;
-                            } else if (chance > 0 && chance <= 9) {
-                                if (one_in(chance)) {
-                                    melting->damage++;
-                                }
-                            }
-                            if (melting->damage >= 5) {
-                                //Destroy the object, age the field.
-                                cur->setFieldAge(cur->getFieldAge() + melting->volume());
-                                contents.insert( contents.begin(),
-                                                 melting->contents.begin(), melting->contents.end() );
-                                melting = items.erase( melting );
-                            } else {
-                                melting++;
-                            }
-                        }
-                        for( auto &c : contents ) {
-                            add_item_or_charges( p, c );
                         }
 
                         // Try to fall by a z-level
@@ -777,11 +761,10 @@ bool map::process_fields_in_submap( submap *const current_submap,
                             // explosions will destroy items on this square, iterating
                             // backwards makes sure that every item is visited.
                             for( auto explosive = items_here.begin(); explosive != items_here.end(); ) {
-                                if( explosive->type->explode_in_fire() ) {
+                                if( explosive->type->explode_in_fire ) {
                                     // Make a copy and let the copy explode.
                                     item tmp = *explosive;
                                     i_rem( p, explosive );
-                                    // TODO: Z
                                     tmp.detonate( p );
                                     // Just restart from the beginning.
                                     explosive = items_here.begin();
@@ -811,7 +794,7 @@ bool map::process_fields_in_submap( submap *const current_submap,
                                 bool special = false;
                                 //Flame type ammo removed so gasoline isn't explosive, it just burns.
                                 if( ammo_type != nullptr &&
-                                    ( !fuel->made_of("hydrocarbons") && !fuel->made_of("oil") ) ) {
+                                    ( !fuel->made_of( material_id( "hydrocarbons" ) ) && !fuel->made_of( material_id( "oil" ) ) ) ) {
                                     cookoff = ammo_type->ammo_effects.count("INCENDIARY") ||
                                               ammo_type->ammo_effects.count("COOKOFF");
                                     special = ammo_type->ammo_effects.count("FRAG") ||
@@ -850,12 +833,10 @@ bool map::process_fields_in_submap( submap *const current_submap,
                                             // large intrinsic effect blows up with half
                                             // the ammos damage in force, for each bullet,
                                             // just creating shrapnel.
-                                            // TODO: Z
-                                            g->explosion( p, ammo_type->damage / 2,
-                                                          true, false, false );
+                                            g->explosion( p, ammo_type->damage / 2, 0.5f, false, 1 );
                                         } else if( special ) {
                                             // If it has a special effect just trigger it.
-                                            ammo_effects( p, ammo_type->ammo_effects );
+                                            apply_ammo_effects( p, ammo_type->ammo_effects );
                                         }
                                     }
                                     charges_remaining -= rounds_exploded;
@@ -866,7 +847,7 @@ bool map::process_fields_in_submap( submap *const current_submap,
                                     // Can't find an easy way to handle reinserting the ammo into a potentially
                                     // invalidated list and continuing iteration, so just bail out.
                                     break;
-                                } else if( fuel->made_of("paper") ) {
+                                } else if( fuel->made_of( material_id( "paper" ) ) ) {
                                     //paper items feed the fire moderately.
                                     base_burn_amt = 3;
                                     burn_amt = base_burn_amt * (max_consume - consumed);
@@ -878,7 +859,7 @@ bool map::process_fields_in_submap( submap *const current_submap,
                                         smoke++;    //Large paper items give chance to smoke.
                                     }
 
-                                } else if( fuel->made_of("wood") || fuel->made_of("veggy") ) {
+                                } else if( fuel->made_of( material_id( "wood" ) ) || fuel->made_of( material_id( "veggy" ) ) ) {
                                     //Wood or vegy items burn slowly.
                                     if (vol <= cur->getFieldDensity() * 10 ||
                                         cur->getFieldDensity() == 3) {
@@ -893,8 +874,8 @@ bool map::process_fields_in_submap( submap *const current_submap,
                                     }
                                     smoke++;
 
-                                } else if( (fuel->made_of("cotton") || fuel->made_of("wool")) &&
-                                           !fuel->made_of("nomex") ) {
+                                } else if( (fuel->made_of( material_id( "cotton" ) ) || fuel->made_of( material_id( "wool" ) )) &&
+                                           !fuel->made_of( material_id( "nomex" ) ) ) {
                                     //Cotton and wool moderately quickly but don't feed the fire much.
                                     if( vol <= 5 || cur->getFieldDensity() > 1 ) {
                                         time_added += 1;
@@ -904,10 +885,10 @@ bool map::process_fields_in_submap( submap *const current_submap,
                                     }
                                     smoke++;
 
-                                } else if( fuel->made_of("flesh") || fuel->made_of("hflesh") ||
-                                           fuel->made_of("iflesh") ) {
+                                } else if( fuel->made_of( material_id( "flesh" ) ) || fuel->made_of( material_id( "hflesh" ) ) ||
+                                           fuel->made_of( material_id( "iflesh" ) ) ) {
                                     // Slow and smokey
-                                    if( one_in( vol / 50 / cur->getFieldDensity() ) ) {
+                                    if( one_in( vol / 25 / cur->getFieldDensity() ) ) {
                                         time_added += 1;
                                         burn_amt = cur->getFieldDensity();
                                         smoke += 3 * cur->getFieldDensity();
@@ -919,10 +900,10 @@ bool map::process_fields_in_submap( submap *const current_submap,
 
                                 } else if( fuel->made_of(LIQUID) ) {
                                     // Lots of smoke if alcohol, and LOTS of fire fueling power
-                                    if( fuel->made_of("hydrocarbons") ) {
+                                    if( fuel->made_of( material_id( "hydrocarbons" ) ) ) {
                                         time_added += 300;
                                         smoke += 6;
-                                    } else if( fuel->made_of("alcohol") && fuel->made_of().size() == 1 ) {
+                                    } else if( fuel->made_of( material_id( "alcohol" ) ) && fuel->made_of().size() == 1 ) {
                                         // Only strong alcohol for now
                                         time_added += 250;
                                         smoke += 1;
@@ -937,14 +918,14 @@ bool map::process_fields_in_submap( submap *const current_submap,
                                     // burn_amt will get multiplied by stack size in item::burn
                                     burn_amt = cur->getFieldDensity();
 
-                                } else if( fuel->made_of("powder") ) {
+                                } else if( fuel->made_of( material_id( "powder" ) ) ) {
                                     // Any powder will fuel the fire as 100 times much as its volume
                                     // but be immediately destroyed.
                                     time_added += vol * 100;
                                     destroyed = true;
                                     smoke += 2;
 
-                                } else if( fuel->made_of("plastic") && !fuel->made_of("nomex") ) {
+                                } else if( fuel->made_of( material_id( "plastic" ) ) && !fuel->made_of( material_id( "nomex" ) ) ) {
                                     //Smokey material, doesn't fuel well.
                                     smoke += 3;
                                     if( fuel->burnt <= cur->getFieldDensity() * 2 ||
@@ -954,14 +935,14 @@ bool map::process_fields_in_submap( submap *const current_submap,
                                             time_added += 1;
                                         }
                                     }
-                                } else if( !fuel->made_of("nomex") ) {
+                                } else if( !fuel->made_of( material_id( "nomex" ) ) ) {
                                     // Generic materials, like bone, wheat or fruit
                                     // Just damage and smoke, don't feed the fire
                                     int best_res = 0;
                                     for( auto mat : fuel->made_of_types() ) {
                                         best_res = std::max( best_res, mat->fire_resist() );
                                     }
-                                    if( best_res < cur->getFieldDensity() && one_in( fuel->volume( true, false ) ) ) {
+                                    if( best_res < cur->getFieldDensity() && one_in( fuel->volume() ) ) {
                                         smoke++;
                                         burn_amt = cur->getFieldDensity() - best_res;
                                     }
@@ -1074,7 +1055,7 @@ bool map::process_fields_in_submap( submap *const current_submap,
                         auto neighs = get_neighbors( p );
 
                         // If the flames are in a pit, it can't spread to non-pit
-                        const bool in_pit = ter.loadid == t_pit;
+                        const bool in_pit = ter.id.id() == t_pit;
 
                         // Count adjacent fires, to optimize out needless smoke and hot air
                         int adjacent_fires = 0;
@@ -1203,7 +1184,7 @@ bool map::process_fields_in_submap( submap *const current_submap,
                             const int power = cur->getFieldDensity() + one_in( 5 );
                             if( rng(1, 100) < spread_chance && tr_brazier != trp &&
                                   !ter_furn_has_flag( ter, frn, TFLAG_FIRE_CONTAINER ) &&
-                                  (in_pit == (dster.loadid == t_pit)) &&
+                                  (in_pit == (dster.id.id() == t_pit)) &&
                                   (
                                     (power >= 3 && cur->getFieldAge() < 0 && one_in( 20 ) ) ||
                                     (power >= 2 && ( ter_furn_has_flag( dster, dsfrn, TFLAG_FLAMMABLE ) && one_in(2) ) ) ||
@@ -1408,14 +1389,14 @@ bool map::process_fields_in_submap( submap *const current_submap,
                     case fd_electricity:
                         if (!one_in(5)) {   // 4 in 5 chance to spread
                             std::vector<tripoint> valid;
-                            if (move_cost( p ) == 0 && cur->getFieldDensity() > 1) { // We're grounded
+                            if (impassable( p ) && cur->getFieldDensity() > 1) { // We're grounded
                                 int tries = 0;
                                 tripoint pnt;
                                 pnt.z = p.z;
                                 while (tries < 10 && cur->getFieldAge() < 50 && cur->getFieldDensity() > 1) {
                                     pnt.x = p.x + rng(-1, 1);
                                     pnt.y = p.y + rng(-1, 1);
-                                    if( move_cost( pnt ) != 0 ) {
+                                    if( passable( pnt ) ) {
                                         add_field( pnt, fd_electricity, 1, cur->getFieldAge() + 1);
                                         cur->setFieldDensity(cur->getFieldDensity() - 1);
                                         tries = 0;
@@ -1427,7 +1408,7 @@ bool map::process_fields_in_submap( submap *const current_submap,
                                 for (int a = -1; a <= 1; a++) {
                                     for (int b = -1; b <= 1; b++) {
                                         tripoint dst( p.x + a, p.y + b, p.z );
-                                        if( move_cost( dst ) == 0 ) // Grounded tiles first
+                                        if( impassable( dst ) ) // Grounded tiles first
 
                                         {
                                             valid.push_back( dst );
@@ -1437,11 +1418,11 @@ bool map::process_fields_in_submap( submap *const current_submap,
                                 if( valid.empty() ) {    // Spread to adjacent space, then
                                     tripoint dst( p.x + rng(-1, 1), p.y + rng(-1, 1), p.z );
                                     field_entry *elec = get_field( dst ).findField( fd_electricity );
-                                    if( move_cost( dst ) > 0 && elec != nullptr &&
+                                    if( passable( dst ) && elec != nullptr &&
                                         elec->getFieldDensity() < 3) {
                                         elec->setFieldDensity( elec->getFieldDensity() + 1 );
                                         cur->setFieldDensity(cur->getFieldDensity() - 1);
-                                    } else if( move_cost( dst ) > 0) {
+                                    } else if( passable( dst ) ) {
                                         add_field( dst, fd_electricity, 1, cur->getFieldAge() + 1 );
                                     }
                                     cur->setFieldDensity(cur->getFieldDensity() - 1);
@@ -1496,7 +1477,7 @@ bool map::process_fields_in_submap( submap *const current_submap,
                                 if (!valid.empty()) {
                                     tripoint newp = random_entry( valid );
                                     add_item_or_charges( newp, tmp );
-                                    if( g->u.pos3() == newp ) {
+                                    if( g->u.pos() == newp ) {
                                         add_msg(m_bad, _("A %s hits you!"), tmp.tname().c_str());
                                         body_part hit = random_body_part();
                                         g->u.deal_damage( nullptr, hit, damage_instance( DT_BASH, 6 ) );
@@ -1622,8 +1603,8 @@ bool map::process_fields_in_submap( submap *const current_submap,
                         } else {
                             // Bees chase the player if in range, wander randomly otherwise.
                             if( !g->u.is_underwater() &&
-                                rl_dist( p, g->u.pos3() ) < 10 &&
-                                clear_path( p, g->u.pos3(), 10, 0, 100 ) ) {
+                                rl_dist( p, g->u.pos() ) < 10 &&
+                                clear_path( p, g->u.pos(), 10, 0, 100 ) ) {
 
                                 std::vector<point> candidate_positions =
                                     squares_in_direction( p.x, p.y, g->u.posx(), g->u.posy() );
@@ -1726,7 +1707,7 @@ If you wish for a field effect to do something over time (propagate, interact wi
 void map::player_in_field( player &u )
 {
     // A copy of the current field for reference. Do not add fields to it, use map::add_field
-    field &curfield = get_field( u.pos3() );
+    field &curfield = get_field( u.pos() );
     int veh_part; // vehicle part existing on this tile.
     vehicle *veh = NULL; // Vehicle reference if there is one.
     bool inside = false; // Are we inside?
@@ -1736,7 +1717,7 @@ void map::player_in_field( player &u )
     //If we are in a vehicle figure out if we are inside (reduces effects usually)
     // and what part of the vehicle we need to deal with.
     if (u.in_vehicle) {
-        veh = veh_at( u.pos3(), veh_part );
+        veh = veh_at( u.pos(), veh_part );
         inside = (veh && veh->is_inside(veh_part));
     }
 
@@ -1767,7 +1748,7 @@ void map::player_in_field( player &u )
             //Moving through multiple webs stacks the effect.
             if (!u.has_trait("WEB_WALKER") && !u.in_vehicle) {
                 //between 5 and 15 minus your current web level.
-                u.add_effect("webbed", 1, num_bp, true, cur->getFieldDensity());
+                u.add_effect( effect_webbed, 1, num_bp, true, cur->getFieldDensity());
                 cur->setFieldDensity( 0 ); //Its spent.
                 continue;
                 //If you are in a vehicle destroy the web.
@@ -1786,38 +1767,42 @@ void map::player_in_field( player &u )
                 break;
             }
 
+            if( u.has_trait( "ACIDPROOF" ) ) {
+                // No need for warnings
+                break;
+            }
+
             const int density = cur->getFieldDensity();
             int total_damage = 0;
             // Use a helper for a bit less boilerplate
             const auto burn_part = [&]( body_part bp, const int scale ) {
-                const int corr = u.get_effect_int( "corroding", bp );
-                // Acid resistance itself protects the items,
-                //  environmental protection is needed to prevent it from getting inside.
-                // Also rescale arpen for different body parts - they get damaged less, but aren't
-                //  protected any better.
-                const int arpen = std::max<int>( 0, corr - u.get_env_resist( bp ) + (5 - scale) );
-                const int damage = std::max<int>( density, rng( 1, scale ) );
-                auto ddi = u.deal_damage( nullptr, bp, damage_instance( DT_ACID, damage, arpen ) );
-                total_damage += ddi.total_damage();
+                const int damage = rng( 1, scale + density );
+                // A bit ugly, but better than being annoyed by acid when in hazmat
+                if( u.get_armor_type( DT_ACID, bp ) < damage ) {
+                    auto ddi = u.deal_damage( nullptr, bp, damage_instance( DT_ACID, damage ) );
+                    total_damage += ddi.total_damage();
+                }
                 // Represents acid seeping in rather than being splashed on
-                u.add_env_effect( "corroding", bp, 3, rng( 1, density ), bp, false, 0 );
+                u.add_env_effect( effect_corroding, bp, 2 + density, rng( 2, 1 + density ), bp, false, 0 );
             };
 
+            // 1-3 at density, 1-4 at 2, 1-5 at 3
+            burn_part( bp_foot_l, 2 );
+            burn_part( bp_foot_r, 2 );
+            // 1 dmg at 1 density, 1-3 at 2, 1-5 at 3
+            burn_part( bp_leg_l,  density - 1 );
+            burn_part( bp_leg_r,  density - 1 );
             const bool on_ground = u.is_on_ground();
-            burn_part( bp_foot_l, 5 );
-            burn_part( bp_foot_r, 5 );
-            burn_part( bp_leg_l,  4 );
-            burn_part( bp_leg_r,  4 );
             if( on_ground ) {
                 // Before, it would just break the legs and leave the survivor alone
-                burn_part( bp_hand_l, 3 );
-                burn_part( bp_hand_r, 3 );
-                burn_part( bp_torso,  3 );
+                burn_part( bp_hand_l, 2 );
+                burn_part( bp_hand_r, 2 );
+                burn_part( bp_torso,  2 );
                 // Less arms = less ability to keep upright
                 if( ( u.has_two_arms() && one_in( 4 ) ) || one_in( 2 ) ) {
-                    burn_part( bp_arm_l, 2 );
-                    burn_part( bp_arm_r, 2 );
-                    burn_part( bp_head,  2 );
+                    burn_part( bp_arm_l, 1 );
+                    burn_part( bp_arm_r, 1 );
+                    burn_part( bp_head,  1 );
                 }
             }
 
@@ -1843,7 +1828,7 @@ void map::player_in_field( player &u )
                 break; //sap does nothing to cars.
             }
             u.add_msg_player_or_npc(m_bad, _("The sap sticks to you!"), _("The sap sticks to <npcname>!"));
-            u.add_effect("sap", cur->getFieldDensity() * 2);
+            u.add_effect( effect_sap, cur->getFieldDensity() * 2);
             cur->setFieldDensity(cur->getFieldDensity() - 1); //Use up sap.
             break;
 
@@ -1868,59 +1853,76 @@ void map::player_in_field( player &u )
                     adjusted_intensity -= 1;
                 }
             }
+
+            if( adjusted_intensity < 1 ) {
+                break;
+            }
             {
-                std::list<int> parts_burned;
-                int burn_min = 0;
-                int burn_max = 0;
-                // first is for the player, second for the npc
-                std::string burn_message[2];
-                switch( adjusted_intensity ) {
-                case 3:
-                    burn_message[0] = _("You're set ablaze!");
-                    burn_message[1] = _("<npcname> is set ablaze!");
-                    burn_min = 4;
-                    burn_max = 12;
-                    parts_burned.push_back( bp_hand_l );
-                    parts_burned.push_back( bp_hand_r );
-                    parts_burned.push_back( bp_arm_l );
-                    parts_burned.push_back( bp_arm_r );
-                    // Only blazing fires set you ablaze.
-                    u.add_effect("onfire", 5);
-                    // Fallthrough intentional.
-                case 2:
-                    if( burn_message[0].empty() ) {
-                        burn_message[0] = _("You're burning up!");
-                        burn_message[1] = _("<npcname> is burning up!");
-                        burn_min = 2;
-                        burn_max = 9;
+                // Burn message by intensity
+                static const std::array<std::string, 4> player_burn_msg = {{
+                    _("You burn your legs and feet!"),
+                    _("You're burning up!"),
+                    _("You're set ablaze!"),
+                    _("Your whole body is burning!")
+                }};
+                static const std::array<std::string, 4> npc_burn_msg = {{
+                    _("<npcname> burns their legs and feet!"),
+                    _("<npcname> is burning up!"),
+                    _("<npcname> is set ablaze!"),
+                    _("<npcname>s whole body is burning!")
+                }};
+                static const std::array<std::string, 4> player_warn_msg = {{
+                    _("You're standing in a fire!"),
+                    _("You're waist-deep in a fire!"),
+                    _("You're surrounded by raging fire!"),
+                    _("You're lying in fire!")
+                }};
+
+                int burn_min = adjusted_intensity;
+                int burn_max = 3 * adjusted_intensity + 3;
+                std::list<body_part> parts_burned;
+                int msg_num = adjusted_intensity - 1;
+                if( !u.is_on_ground() ) {
+                    switch( adjusted_intensity ) {
+                        case 3:
+                            parts_burned.push_back( bp_hand_l );
+                            parts_burned.push_back( bp_hand_r );
+                            parts_burned.push_back( bp_arm_l );
+                            parts_burned.push_back( bp_arm_r );
+                            // Fallthrough intentional.
+                        case 2:
+                            parts_burned.push_back( bp_torso );
+                            // Fallthrough intentional.
+                        case 1:
+                            parts_burned.push_back( bp_foot_l );
+                            parts_burned.push_back( bp_foot_r );
+                            parts_burned.push_back( bp_leg_l );
+                            parts_burned.push_back( bp_leg_r );
                     }
-                    parts_burned.push_back( bp_torso );
-                    // Fallthrough intentional.
-                case 1:
-                    if( burn_message[0].empty() ) {
-                        burn_message[0] = _("You burn your legs and feet!");
-                        burn_message[1] = _("<npcname> burns their legs and feet!");
-                        burn_min = 1;
-                        burn_max = 6;
-                    }
-                    parts_burned.push_back( bp_foot_l );
-                    parts_burned.push_back( bp_foot_r );
-                    parts_burned.push_back( bp_leg_l );
-                    parts_burned.push_back( bp_leg_r );
-                }
-                if( u.is_on_ground() ) {
+                } else {
                     // Lying in the fire is BAAAD news, hits every body part.
-                    burn_message[0] = _("Your whole body is burning!");
-                    burn_message[1] = _("<npcname>s whole body is burning!");
-                    parts_burned.clear();
+                    msg_num = 3;
                     for( int i = 0; i < num_bp; ++i ) {
-                        parts_burned.push_back( i );
+                        parts_burned.push_back( (body_part)i );
                     }
                 }
-                u.add_msg_player_or_npc( m_bad, burn_message[0].c_str(), burn_message[1].c_str() );
+
+                int total_damage = 0;
                 for( auto part_burned : parts_burned ) {
-                    u.deal_damage( nullptr, (enum body_part)part_burned,
-                                      damage_instance( DT_HEAT, rng( burn_min, burn_max ) ) );
+                    const auto dealt = u.deal_damage( nullptr, part_burned,
+                        damage_instance( DT_HEAT, rng( burn_min, burn_max ) ) );
+                    total_damage += dealt.type_damage( DT_HEAT );
+                }
+                if( total_damage > 10 ) {
+                    u.add_effect( effect_onfire, 2 + adjusted_intensity );
+                }
+                if( total_damage > 0 ) {
+                    u.add_msg_player_or_npc( m_bad,
+                        player_burn_msg[msg_num].c_str(),
+                        npc_burn_msg[msg_num].c_str() );
+                } else {
+                    u.add_msg_if_player( m_warning,
+                        player_warn_msg[msg_num].c_str() );
                 }
                 u.check_dead_state();
             }
@@ -1943,7 +1945,7 @@ void map::player_in_field( player &u )
                         coughStr = 1;
                         coughDur = 2;
                     }
-                    u.add_env_effect("smoke", bp_mouth, coughStr, coughDur);
+                    u.add_env_effect( effect_smoke, bp_mouth, coughStr, coughDur );
                 }
             }
             break;
@@ -1952,33 +1954,33 @@ void map::player_in_field( player &u )
             //Tear gas will both give you teargas disease and/or blind you.
             if ((cur->getFieldDensity() > 1 || !one_in(3)) && (!inside || (inside && one_in(3))))
             {
-                u.add_env_effect("teargas", bp_mouth, 5, 20);
+                u.add_env_effect( effect_teargas, bp_mouth, 5, 20 );
             }
             if (cur->getFieldDensity() > 1 && (!inside || (inside && one_in(3))))
             {
-                u.add_env_effect("blind", bp_eyes, cur->getFieldDensity() * 2, 10);
+                u.add_env_effect( effect_blind, bp_eyes, cur->getFieldDensity() * 2, 10 );
             }
             break;
 
         case fd_relax_gas:
             if ((cur->getFieldDensity() > 1 || !one_in(3)) && (!inside || (inside && one_in(3))))
             {
-                u.add_env_effect("relax_gas", bp_mouth, cur->getFieldDensity() * 2, 3);
+                u.add_env_effect( effect_relax_gas, bp_mouth, cur->getFieldDensity() * 2, 3 );
             }
             break;
 
         case fd_fungal_haze:
             if (!u.has_trait("M_IMMUNE") && (!inside || (inside && one_in(4))) ) {
-                u.add_env_effect("fungus", bp_mouth, 4, 100, num_bp, true);
-                u.add_env_effect("fungus", bp_eyes, 4, 100, num_bp, true);
+                u.add_env_effect( effect_fungus, bp_mouth, 4, 100, num_bp, true );
+                u.add_env_effect( effect_fungus, bp_eyes, 4, 100, num_bp, true );
             }
             break;
 
         case fd_dazzling:
             if (cur->getFieldDensity() > 1 || one_in(5)){
-                u.add_env_effect("blind", bp_eyes, 10, 10);
+                u.add_env_effect( effect_blind, bp_eyes, 10, 10 );
             } else{
-                u.add_env_effect("blind", bp_eyes, 2, 2);
+                u.add_env_effect( effect_blind, bp_eyes, 2, 2 );
             }
             break;
 
@@ -1989,11 +1991,11 @@ void map::player_in_field( player &u )
                 bool inhaled = false;
                 if( cur->getFieldDensity() == 2 &&
                     (!inside || (cur->getFieldDensity() == 3 && inside)) ) {
-                    inhaled = u.add_env_effect("poison", bp_mouth, 5, 30);
+                    inhaled = u.add_env_effect( effect_poison, bp_mouth, 5, 30 );
                 } else if( cur->getFieldDensity() == 3 && !inside ) {
-                    inhaled = u.add_env_effect("badpoison", bp_mouth, 5, 30);
+                    inhaled = u.add_env_effect( effect_badpoison, bp_mouth, 5, 30 );
                 } else if( cur->getFieldDensity() == 1 && (!inside) ) {
-                    inhaled = u.add_env_effect("poison", bp_mouth, 2, 20);
+                    inhaled = u.add_env_effect( effect_poison, bp_mouth, 2, 20 );
                 }
                 if( inhaled ) {
                     // player does not know how the npc feels, so no message.
@@ -2028,19 +2030,23 @@ void map::player_in_field( player &u )
             break;
 
         case fd_electricity:
-            if ( u.is_elec_immune() ) {
-                u.add_msg_player_or_npc( _("The electric cloud doesn't affect you."),
-                                         _("The electric cloud doesn't seem to affect <npcname>.") );
-            } else {
-                u.add_msg_player_or_npc(m_bad, _("You're electrocuted!"), _("<npcname> is electrocuted!"));
-                //small universal damage based on density.
-                u.hurtall(rng(1, cur->getFieldDensity()), nullptr);
-                if (one_in(8 - cur->getFieldDensity()) && !one_in(30 - u.str_cur)) {
-                    //str of 30 stops this from happening.
-                    u.add_msg_player_or_npc(m_bad, _("You're paralyzed!"), _("<npcname> is paralyzed!"));
-                    u.moves -= rng(cur->getFieldDensity() * 150, cur->getFieldDensity() * 200);
-                }
+        {
+            // Small universal damage based on density.
+            int total_damage = 0;
+            for( size_t i = 0; i < num_hp_parts; i++ ) {
+                const body_part bp = player::hp_to_bp( static_cast<hp_part>( i ) );
+                const int dmg = rng( 1, cur->getFieldDensity() );
+                total_damage += u.deal_damage( nullptr, bp, damage_instance( DT_ELECTRIC, dmg ) ).total_damage();
             }
+
+            if( total_damage > 0 ) {
+                u.add_msg_player_or_npc(m_bad, _("You're electrocuted!"), _("<npcname> is electrocuted!"));
+            } else {
+                u.add_msg_player_or_npc( _("The electric cloud doesn't affect you."),
+                                     _("The electric cloud doesn't seem to affect <npcname>.") );
+            }
+        }
+
             break;
 
         case fd_fatigue:
@@ -2072,21 +2078,21 @@ void map::player_in_field( player &u )
                 // If the bees can get at you, they cause steadily increasing pain.
                 // TODO: Specific stinging messages.
                 times_stung += one_in(4) &&
-                    u.add_env_effect( "stung", bp_torso, density, 90 );
+                    u.add_env_effect( effect_stung, bp_torso, density, 90 );
                 times_stung += one_in(4) &&
-                    u.add_env_effect( "stung", bp_torso, density, 90 );
+                    u.add_env_effect( effect_stung, bp_torso, density, 90 );
                 times_stung += one_in(4) &&
-                    u.add_env_effect( "stung", bp_torso, density, 90 );
+                    u.add_env_effect( effect_stung, bp_torso, density, 90 );
                 times_stung += one_in(4) &&
-                    u.add_env_effect( "stung", bp_torso, density, 90 );
+                    u.add_env_effect( effect_stung, bp_torso, density, 90 );
                 times_stung += one_in(4) &&
-                    u.add_env_effect( "stung", bp_torso, density, 90 );
+                    u.add_env_effect( effect_stung, bp_torso, density, 90 );
                 times_stung += one_in(4) &&
-                    u.add_env_effect( "stung", bp_torso, density, 90 );
+                    u.add_env_effect( effect_stung, bp_torso, density, 90 );
                 times_stung += one_in(4) &&
-                    u.add_env_effect( "stung", bp_torso, density, 90 );
+                    u.add_env_effect( effect_stung, bp_torso, density, 90 );
                 times_stung += one_in(4) &&
-                    u.add_env_effect( "stung", bp_torso, density, 90 );
+                    u.add_env_effect( effect_stung, bp_torso, density, 90 );
                 switch( times_stung ) {
                 case 0:
                     // Woo, unscathed!
@@ -2119,7 +2125,7 @@ void map::player_in_field( player &u )
                 u.hurtall(rng(1, 3), nullptr);
             } else {
                 u.add_msg_player_or_npc(m_bad, _("The incendiary melts into your skin!"), _("The incendiary melts into <npcname>s skin!"));
-                u.add_effect("onfire", 8);
+                u.add_effect( effect_onfire, 8);
                 u.hurtall(rng(2, 6), nullptr);
             }
             break;
@@ -2137,9 +2143,9 @@ void map::player_in_field( player &u )
                 }
                 bool inhaled = false;
                 const int density = cur->getFieldDensity();
-                inhaled = u.add_env_effect( "poison", bp_mouth, 5, density * 10 );
+                inhaled = u.add_env_effect( effect_poison, bp_mouth, 5, density * 10 );
                 if( u.has_trait("THRESH_MYCUS") || u.has_trait("THRESH_MARLOSS") ) {
-                    inhaled |= u.add_env_effect( "badpoison", bp_mouth, 5, density * 10 );
+                    inhaled |= u.add_env_effect( effect_badpoison, bp_mouth, 5, density * 10 );
                     u.hurtall( rng( density, density * 2 ), nullptr );
                     u.add_msg_if_player( m_bad, _("The %s burns your skin."), cur->name().c_str() );
                 }
@@ -2174,7 +2180,7 @@ void map::monster_in_field( monster &z )
     if (z.digging()) {
         return; // Digging monsters are immune to fields
     }
-    field &curfield = get_field( z.pos3() );
+    field &curfield = get_field( z.pos() );
 
     int dam = 0;
     // Iterate through all field effects on this tile.
@@ -2194,7 +2200,7 @@ void map::monster_in_field( monster &z )
 
         case fd_web:
             if (!z.has_flag(MF_WEBWALK)) {
-                z.add_effect("webbed", 1, num_bp, true, cur->getFieldDensity());
+                z.add_effect( effect_webbed, 1, num_bp, true, cur->getFieldDensity());
                 cur->setFieldDensity( 0 );
             }
             break;
@@ -2225,22 +2231,24 @@ void map::monster_in_field( monster &z )
             if (z.has_flag(MF_FIREPROOF)){
                 return;
             }
-            if ( z.made_of("flesh") || z.made_of("hflesh") || z.made_of("iflesh") ) {
+            // TODO: Replace the section below with proper json values
+            if ( z.made_of( material_id( "flesh" ) ) || z.made_of( material_id( "hflesh" ) ) || z.made_of( material_id( "iflesh" ) ) ) {
                 dam += 3;
             }
-            if (z.made_of("veggy")) {
+            if (z.made_of( material_id( "veggy" ) )) {
                 dam += 12;
             }
-            if (z.made_of("paper") || z.made_of(LIQUID) || z.made_of("powder") ||
-                z.made_of("wood")  || z.made_of("cotton") || z.made_of("wool")) {
+            if (z.made_of( material_id( "paper" ) ) || z.made_of(LIQUID) || z.made_of( material_id( "powder" ) ) ||
+                z.made_of( material_id( "wood" ) )  || z.made_of( material_id( "cotton" ) ) || z.made_of( material_id( "wool" ) )) {
                 dam += 20;
             }
-            if (z.made_of("stone") || z.made_of("kevlar") || z.made_of("steel")) {
+            if (z.made_of( material_id( "stone" ) ) || z.made_of( material_id( "kevlar" ) ) || z.made_of( material_id( "steel" ) )) {
                 dam += -20;
             }
             if (z.has_flag(MF_FLIES)) {
                 dam -= 15;
             }
+            dam -= z.get_armor_type( DT_HEAT, bp_torso );
 
             if (cur->getFieldDensity() == 1) {
                 dam += rng(2, 6);
@@ -2248,18 +2256,16 @@ void map::monster_in_field( monster &z )
                 dam += rng(6, 12);
                 if (!z.has_flag(MF_FLIES)) {
                     z.moves -= 20;
-                    if (!z.made_of(LIQUID) && !z.made_of("stone") && !z.made_of("kevlar") &&
-                        !z.made_of("steel") && !z.has_flag(MF_FIREY)) {
-                        z.add_effect("onfire", rng(3, 8));
+                    if( dam > 0 ) {
+                        z.add_effect( effect_onfire, rng(dam / 2, dam * 2));
                     }
                 }
             } else if (cur->getFieldDensity() == 3) {
                 dam += rng(10, 20);
                 if (!z.has_flag(MF_FLIES) || one_in(3)) {
                     z.moves -= 40;
-                    if (!z.made_of(LIQUID) && !z.made_of("stone") && !z.made_of("kevlar") &&
-                        !z.made_of("steel") && !z.has_flag(MF_FIREY)) {
-                        z.add_effect("onfire", rng(8, 12));
+                    if( dam > 0 ) {
+                        z.add_effect( effect_onfire, rng(dam / 2, dam * 2));
                     }
                 }
             }
@@ -2272,45 +2278,45 @@ void map::monster_in_field( monster &z )
                 if (cur->getFieldDensity() == 3) {
                     z.moves -= rng(10, 20);
                 }
-                if (z.made_of("veggy")) { // Plants suffer from smoke even worse
+                if (z.made_of( material_id( "veggy" ) )) { // Plants suffer from smoke even worse
                     z.moves -= rng(1, cur->getFieldDensity() * 12);
                 }
             }
             break;
 
         case fd_tear_gas:
-            if ((z.made_of("flesh") || z.made_of("hflesh") || z.made_of("veggy") || z.made_of("iflesh")) &&
+            if ((z.made_of( material_id( "flesh" ) ) || z.made_of( material_id( "hflesh" ) ) || z.made_of( material_id( "veggy" ) ) || z.made_of( material_id( "iflesh" ) )) &&
                 !z.has_flag(MF_NO_BREATHE)) {
                 if (cur->getFieldDensity() == 3) {
-                    z.add_effect("stunned", rng(10, 20));
+                    z.add_effect( effect_stunned, rng(10, 20));
                     dam += rng(4, 10);
                 } else if (cur->getFieldDensity() == 2) {
-                    z.add_effect("stunned", rng(5, 10));
+                    z.add_effect( effect_stunned, rng(5, 10));
                     dam += rng(2, 5);
                 } else {
-                    z.add_effect("stunned", rng(1, 5));
+                    z.add_effect( effect_stunned, rng(1, 5));
                 }
-                if (z.made_of("veggy")) {
+                if (z.made_of( material_id( "veggy" ) )) {
                     z.moves -= rng(cur->getFieldDensity() * 5, cur->getFieldDensity() * 12);
                     dam += cur->getFieldDensity() * rng(8, 14);
                 }
                 if (z.has_flag(MF_SEES)) {
-                     z.add_effect("blind", cur->getFieldDensity() * 8);
+                     z.add_effect( effect_blind, cur->getFieldDensity() * 8);
                 }
             }
             break;
 
         case fd_relax_gas:
-            if ((z.made_of("flesh") || z.made_of("hflesh") || z.made_of("veggy") || z.made_of("iflesh")) &&
+            if ((z.made_of( material_id( "flesh" ) ) || z.made_of( material_id( "hflesh" ) ) || z.made_of( material_id( "veggy" ) ) || z.made_of( material_id( "iflesh" ) )) &&
                 !z.has_flag(MF_NO_BREATHE)) {
-                z.add_effect("stunned", rng(cur->getFieldDensity() * 4, cur->getFieldDensity() * 8));
+                z.add_effect( effect_stunned, rng(cur->getFieldDensity() * 4, cur->getFieldDensity() * 8));
             }
             break;
 
         case fd_dazzling:
             if (z.has_flag(MF_SEES)) {
-                z.add_effect("blind", cur->getFieldDensity() * 12);
-                z.add_effect("stunned", cur->getFieldDensity() * rng(5, 12));
+                z.add_effect( effect_blind, cur->getFieldDensity() * 12);
+                z.add_effect( effect_stunned, cur->getFieldDensity() * rng(5, 12));
             }
             break;
 
@@ -2333,7 +2339,7 @@ void map::monster_in_field( monster &z )
                     z.moves -= rng(0, 15);
                     dam += rng(0, 12);
                 }
-                if (z.made_of("veggy")) {
+                if (z.made_of( material_id( "veggy" ) )) {
                     z.moves -= rng(cur->getFieldDensity() * 5, cur->getFieldDensity() * 12);
                     dam *= cur->getFieldDensity();
                 }
@@ -2342,17 +2348,17 @@ void map::monster_in_field( monster &z )
 
             // MATERIALS-TODO: Use fire resistance
         case fd_flame_burst:
-            if (z.made_of("flesh") || z.made_of("hflesh") || z.made_of("iflesh")) {
+            if (z.made_of( material_id( "flesh" ) ) || z.made_of( material_id( "hflesh" ) ) || z.made_of( material_id( "iflesh" ) )) {
                 dam += 3;
             }
-            if (z.made_of("veggy")) {
+            if (z.made_of( material_id( "veggy" ) )) {
                 dam += 12;
             }
-            if (z.made_of("paper") || z.made_of(LIQUID) || z.made_of("powder") ||
-                z.made_of("wood")  || z.made_of("cotton") || z.made_of("wool")) {
+            if (z.made_of( material_id( "paper" ) ) || z.made_of(LIQUID) || z.made_of( material_id( "powder" ) ) ||
+                z.made_of( material_id( "wood" ) )  || z.made_of( material_id( "cotton" ) ) || z.made_of( material_id( "wool" ) )) {
                 dam += 50;
             }
-            if (z.made_of("stone") || z.made_of("kevlar") || z.made_of("steel")) {
+            if (z.made_of( material_id( "stone" ) ) || z.made_of( material_id( "kevlar" ) ) || z.made_of( material_id( "steel" ) )) {
                 dam += -25;
             }
             dam += rng(0, 8);
@@ -2360,12 +2366,9 @@ void map::monster_in_field( monster &z )
             break;
 
         case fd_electricity:
-            if( !z.is_elec_immune() ) {
-                dam += rng(1, cur->getFieldDensity());
-                if (one_in(8 - cur->getFieldDensity())) {
-                    z.moves -= cur->getFieldDensity() * 150;
-                }
-            }
+            // We don't want to increase dam, but deal a separate hit so that it can apply effects
+            z.deal_damage( nullptr, bp_torso,
+                           damage_instance( DT_ELECTRIC, rng( 1, cur->getFieldDensity() * 3 ) ) );
             break;
 
         case fd_fatigue:
@@ -2377,7 +2380,7 @@ void map::monster_in_field( monster &z )
                     newpos.x = rng(z.posx() - SEEX, z.posx() + SEEX);
                     newpos.y = rng(z.posy() - SEEY, z.posy() + SEEY);
                     tries++;
-                } while (move_cost(newpos) == 0 && tries != 10);
+                } while (impassable(newpos) && tries != 10);
 
                 if (tries == 10) {
                     z.die_in_explosion( nullptr );
@@ -2398,17 +2401,17 @@ void map::monster_in_field( monster &z )
 
         case fd_incendiary:
             // MATERIALS-TODO: Use fire resistance
-            if ( z.made_of("flesh") || z.made_of("hflesh") || z.made_of("iflesh") ) {
+            if ( z.made_of( material_id( "flesh" ) ) || z.made_of( material_id( "hflesh" ) ) || z.made_of( material_id( "iflesh" ) ) ) {
                 dam += 3;
             }
-            if (z.made_of("veggy")) {
+            if (z.made_of( material_id( "veggy" ) )) {
                 dam += 12;
             }
-            if (z.made_of("paper") || z.made_of(LIQUID) || z.made_of("powder") ||
-                z.made_of("wood")  || z.made_of("cotton") || z.made_of("wool")) {
+            if (z.made_of( material_id( "paper" ) ) || z.made_of(LIQUID) || z.made_of( material_id( "powder" ) ) ||
+                z.made_of( material_id( "wood" ) )  || z.made_of( material_id( "cotton" ) ) || z.made_of( material_id( "wool" ) )) {
                 dam += 20;
             }
-            if (z.made_of("stone") || z.made_of("kevlar") || z.made_of("steel")) {
+            if (z.made_of( material_id( "stone" ) ) || z.made_of( material_id( "kevlar" ) ) || z.made_of( material_id( "steel" ) )) {
                 dam += -5;
             }
 
@@ -2417,16 +2420,16 @@ void map::monster_in_field( monster &z )
             } else if (cur->getFieldDensity() == 2) {
                 dam += rng(6, 12);
                 z.moves -= 20;
-                if (!z.made_of(LIQUID) && !z.made_of("stone") && !z.made_of("kevlar") &&
-                !z.made_of("steel") && !z.has_flag(MF_FIREY)) {
-                    z.add_effect("onfire", rng(8, 12));
+                if (!z.made_of(LIQUID) && !z.made_of( material_id( "stone" ) ) && !z.made_of( material_id( "kevlar" ) ) &&
+                !z.made_of( material_id( "steel" ) ) && !z.has_flag(MF_FIREY)) {
+                    z.add_effect( effect_onfire, rng(8, 12));
                 }
             } else if (cur->getFieldDensity() == 3) {
                 dam += rng(10, 20);
                 z.moves -= 40;
-                if (!z.made_of(LIQUID) && !z.made_of("stone") && !z.made_of("kevlar") &&
-                !z.made_of("steel") && !z.has_flag(MF_FIREY)) {
-                        z.add_effect("onfire", rng(12, 16));
+                if (!z.made_of(LIQUID) && !z.made_of( material_id( "stone" ) ) && !z.made_of( material_id( "kevlar" ) ) &&
+                !z.made_of( material_id( "steel" ) ) && !z.has_flag(MF_FIREY)) {
+                        z.add_effect( effect_onfire, rng(12, 16));
                 }
             }
             break;
@@ -2644,4 +2647,10 @@ int field::move_cost() const
         current_cost += fld.second.move_cost();
     }
     return current_cost;
+}
+
+bool field_type_dangerous( field_id id )
+{
+    const field_t &ft = fieldlist[id];
+    return ft.dangerous[0] || ft.dangerous[1] || ft.dangerous[2];
 }

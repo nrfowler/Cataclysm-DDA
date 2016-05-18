@@ -202,7 +202,7 @@ void item::load_info( const std::string &data )
     clear_vars();
     std::string idtmp, ammotmp, item_tag, mode;
     int lettmp, damtmp, acttmp, corp, tag_count;
-    int owned; // Ignoring an obsolete member. 
+    int owned; // Ignoring an obsolete member.
     dump >> lettmp >> idtmp >> charges >> damtmp >> tag_count;
     for( int i = 0; i < tag_count; ++i )
     {
@@ -233,7 +233,7 @@ void item::load_info( const std::string &data )
     } else if( idtmp == "adv_UPS_on" ) {
         idtmp = "adv_UPS_off" ;
     }
-    make(idtmp);
+    convert( idtmp );
 
     invlet = char(lettmp);
     damage = damtmp;
@@ -246,7 +246,7 @@ void item::load_info( const std::string &data )
 
 ///// overmap legacy deserialization, replaced with json serialization June 2015
 // throws std::exception (most likely as JsonError)
-void overmap::unserialize_legacy(std::ifstream & fin) {
+void overmap::unserialize_legacy(std::istream & fin) {
     // DEBUG VARS
     int nummg = 0;
     char datatype;
@@ -269,11 +269,18 @@ void overmap::unserialize_legacy(std::ifstream & fin) {
             oter_id tmp_otid(0);
             if (z >= 0 && z < OVERMAP_LAYERS) {
                 int count = 0;
+                std::unordered_map<tripoint, std::string> needs_conversion;
                 for (int j = 0; j < OMAPY; j++) {
                     for (int i = 0; i < OMAPX; i++) {
                         if (count == 0) {
                             fin >> tmp_ter >> count;
-                            if( otermap.count( tmp_ter ) > 0 ) {
+                            if( obsolete_terrain( tmp_ter ) ) {
+                                for( int p = i; p < i+count; p++ ) {
+                                    needs_conversion.emplace( tripoint( p, j, z-OVERMAP_DEPTH ),
+                                                              tmp_ter );
+                                }
+                                tmp_otid = 0;
+                            } else if( otermap.count( tmp_ter ) > 0 ) {
                                 tmp_otid = tmp_ter;
                             } else if( tmp_ter.compare( 0, 7, "mall_a_" ) == 0 &&
                                        otermap.count( tmp_ter + "_north" ) > 0 ) {
@@ -291,6 +298,7 @@ void overmap::unserialize_legacy(std::ifstream & fin) {
                         layer[z].visible[i][j] = false;
                     }
                 }
+                convert_terrain( needs_conversion );
             } else {
                 debugmsg("Loaded z level out of range (z: %d)", z);
             }
@@ -432,7 +440,7 @@ void overmap::unserialize_legacy(std::ifstream & fin) {
     }
 }
 
-void overmap::unserialize_view_legacy( std::ifstream &fin )
+void overmap::unserialize_view_legacy( std::istream &fin )
 {
     // Private/per-character data
     int z = 0; // assumption

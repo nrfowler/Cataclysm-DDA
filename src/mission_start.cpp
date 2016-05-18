@@ -1,4 +1,6 @@
 #include "mission.h"
+
+#include "coordinate_conversions.h"
 #include "game.h"
 #include "map.h"
 #include "debug.h"
@@ -15,6 +17,7 @@
 // TODO: Remove this include once 2D wrappers are no longer needed
 #include "mapgen_functions.h"
 #include "field.h"
+#include "npc.h"
 
 const mtype_id mon_charred_nightmare( "mon_charred_nightmare" );
 const mtype_id mon_dog( "mon_dog" );
@@ -28,6 +31,8 @@ const mtype_id mon_zombie_hulk( "mon_zombie_hulk" );
 const mtype_id mon_zombie_master( "mon_zombie_master" );
 const mtype_id mon_zombie_necro( "mon_zombie_necro" );
 
+const efftype_id effect_infection( "infection" );
+
 /* These functions are responsible for making changes to the game at the moment
  * the mission is accepted by the player.  They are also responsible for
  * updating *miss with the target and any other important information.
@@ -39,7 +44,7 @@ const mtype_id mon_zombie_necro( "mon_zombie_necro" );
  */
 static tripoint random_house_in_city( const city_reference &cref )
 {
-    const auto city_center_omt = overmapbuffer::sm_to_omt_copy( cref.abs_sm_pos );
+    const auto city_center_omt = sm_to_omt_copy( cref.abs_sm_pos );
     const auto size = cref.city->s;
     const int z = cref.abs_sm_pos.z;
     std::vector<tripoint> valid;
@@ -69,7 +74,7 @@ static tripoint random_house_in_closest_city()
 }
 /**
  * Set target of mission to closest overmap terrain of that type,
- * reveal the area around it (uses overmapbuffer::reveal with reveal_rad),
+ * reveal the area around it (uses reveal with reveal_rad),
  * and returns the mission target.
  */
 static tripoint target_om_ter( const std::string &omter, int reveal_rad, mission *miss,
@@ -127,11 +132,13 @@ void mission_start::infect_npc( mission *miss )
         debugmsg( "mission_start::infect_npc() couldn't find an NPC!" );
         return;
     }
-    p->add_effect( "infection", 1, num_bp, 1, true );
+    p->add_effect( effect_infection, 1, num_bp, 1, true );
     // make sure they don't have any antibiotics
     p->remove_items_with( []( const item & it ) {
         return it.typeId() == "antibiotics";
     } );
+    // Make sure they stay here
+    p->guard_current_pos();
 }
 
 void mission_start::place_dog( mission *miss )
@@ -211,10 +218,10 @@ void mission_start::place_caravan_ambush( mission *miss )
     bay.place_items( "dresser", 75, SEEX - 3, SEEY, SEEX - 2, SEEY + 2, true, 0 );
     bay.place_items( "softdrugs", 50, SEEX - 3, SEEY, SEEX - 2, SEEY + 2, true, 0 );
     bay.place_items( "camping", 75, SEEX - 3, SEEY, SEEX - 2, SEEY + 2, true, 0 );
-    bay.spawn_item( SEEX + 1, SEEY + 4, "9mm_casing", 1, 1, 0, 0, true );
-    bay.spawn_item( SEEX + rng( -2, 3 ), SEEY + rng( 3, 6 ), "9mm_casing", 1, 1, 0, 0, true );
-    bay.spawn_item( SEEX + rng( -2, 3 ), SEEY + rng( 3, 6 ), "9mm_casing", 1, 1, 0, 0, true );
-    bay.spawn_item( SEEX + rng( -2, 3 ), SEEY + rng( 3, 6 ), "9mm_casing", 1, 1, 0, 0, true );
+    bay.spawn_item( SEEX + 1, SEEY + 4, "9mm_casing", 1, 1, 0, 0 );
+    bay.spawn_item( SEEX + rng( -2, 3 ), SEEY + rng( 3, 6 ), "9mm_casing", 1, 1, 0, 0 );
+    bay.spawn_item( SEEX + rng( -2, 3 ), SEEY + rng( 3, 6 ), "9mm_casing", 1, 1, 0, 0 );
+    bay.spawn_item( SEEX + rng( -2, 3 ), SEEY + rng( 3, 6 ), "9mm_casing", 1, 1, 0, 0 );
     bay.add_corpse( tripoint( SEEX + 1, SEEY + 7, bay.get_abs_sub().z ) );
     bay.add_corpse( tripoint( SEEX, SEEY + 8, bay.get_abs_sub().z ) );
     madd_field( &bay, SEEX, SEEY + 7, fd_blood, 1 );
@@ -272,10 +279,10 @@ void mission_start::place_grabber( mission *miss )
 void mission_start::place_bandit_camp( mission *miss )
 {
     npc *p = g->find_npc( miss->npc_id );
-    g->u.i_add( item( "ruger_redhawk", 0, false ) );
-    g->u.i_add( item( "44magnum", 0, false ) );
-    g->u.i_add( item( "holster", 0, false ) );
-    g->u.i_add( item( "badge_marshal", 0, false ) );
+    g->u.i_add( item( "ruger_redhawk", calendar::turn ) );
+    g->u.i_add( item( "44magnum", calendar::turn ) );
+    g->u.i_add( item( "holster", calendar::turn ) );
+    g->u.i_add( item( "badge_marshal", calendar::turn ) );
     add_msg( m_good, _( "%s has instated you as a marshal!" ), p->name.c_str() );
     // Ideally this would happen at the end of the mission
     // (you're told that they entered your image into the databases, etc)
@@ -617,7 +624,7 @@ void mission_start::recruit_tracker( mission *miss )
 void mission_start::radio_repeater( mission *miss )
 {
     target_om_ter( "necropolis_c_23", 3, miss, false );
-    g->u.i_add( item( "repeater_mod_guide", 0, false ) );
+    g->u.i_add( item( "repeater_mod_guide", calendar::turn ) );
 }
 
 void mission_start::start_commune(mission *miss)
@@ -1518,7 +1525,7 @@ void mission_start::ranch_scavenger_3(mission *miss)
  bay.spawn_item( 17, 21, "wheel_wide" );
  bay.spawn_item( 23, 18, "v8_combustion" );
  bay.furn_set(23,17, "f_arcade_machine");
- bay.ter_set(23,16, "t_machinery_light");
+ bay.ter_set(23,16, ter_str_id( "t_machinery_light" ) );
  bay.furn_set( 20, 21, f_woodstove);
  bay.save();
 

@@ -1,14 +1,20 @@
 #ifndef CHARACTER_H
 #define CHARACTER_H
 
+#include "visitable.h"
 #include "creature.h"
 #include "inventory.h"
 #include "bionics.h"
 #include "skill.h"
+#include "map_selector.h"
 
 #include <map>
 
 using skill_id = string_id<Skill>;
+enum field_id : int;
+class field;
+class field_entry;
+class vehicle;
 
 enum vision_modes {
     DEBUG_NIGHTVISION,
@@ -24,6 +30,9 @@ enum vision_modes {
     URSINE_VISION,
     BOOMERED,
     DARKNESS,
+    IR_VISION,
+    VISION_CLAIRVOYANCE,
+    VISION_CLAIRVOYANCE_SUPER,
     NUM_VISION_MODES
 };
 
@@ -34,7 +43,19 @@ enum fatigue_levels {
     MASSIVE_FATIGUE = 1000
 };
 
-class Character : public Creature
+struct encumbrance_data {
+    int encumbrance = 0;
+    int armor_encumbrance = 0;
+    int layer_penalty = 0;
+    bool operator ==( const encumbrance_data &rhs ) const
+    {
+        return encumbrance == rhs.encumbrance &&
+               armor_encumbrance == rhs.armor_encumbrance &&
+               layer_penalty == rhs.layer_penalty;
+    }
+};
+
+class Character : public Creature, public visitable<Character>
 {
     public:
         virtual ~Character() override { };
@@ -77,6 +98,10 @@ class Character : public Creature
         virtual int get_per_bonus() const;
         virtual int get_int_bonus() const;
 
+        // Penalty modifiers applied for ranged attacks due to low stats
+        virtual int ranged_dex_mod() const;
+        virtual int ranged_per_mod() const;
+
         /** Setters for stats exclusive to characters */
         virtual void set_str_bonus(int nstr);
         virtual void set_dex_bonus(int ndex);
@@ -93,7 +118,7 @@ class Character : public Creature
 
         /** Modifiers for health values exclusive to characters */
         virtual void mod_healthy(int nhealthy);
-        virtual void mod_healthy_mod(int nhealthy_mod);
+        virtual void mod_healthy_mod(int nhealthy_mod, int cap);
 
         /** Setters for health values exclusive to characters */
         virtual void set_healthy(int nhealthy);
@@ -101,27 +126,41 @@ class Character : public Creature
 
         /** Getter for need values exclusive to characters */
         virtual int get_hunger() const;
+        virtual int get_thirst() const;
+        virtual int get_fatigue() const;
         virtual int get_stomach_food() const;
         virtual int get_stomach_water() const;
 
         /** Modifiers for need values exclusive to characters */
         virtual void mod_hunger(int nhunger);
+        virtual void mod_thirst(int nthirst);
+        virtual void mod_fatigue(int nfatigue);
         virtual void mod_stomach_food(int n_stomach_food);
         virtual void mod_stomach_water(int n_stomach_water);
 
         /** Setters for need values exclusive to characters */
         virtual void set_hunger(int nhunger);
+        virtual void set_thirst(int nthirst);
+        virtual void set_fatigue(int nfatigue);
         virtual void set_stomach_food(int n_stomach_food);
         virtual void set_stomach_water(int n_stomach_water);
 
         virtual void mod_stat( const std::string &stat, int modifier ) override;
+
+        /* Calculate aim improvement based on character stats/skills and gunsight properties
+         * @param recoil amount of applicable recoil when determining which gunsight to use
+         * @return MOC of aim improvement per 10 moves
+         * @note These units chosen as MOC/move would be too fast (lower bound 1MOC/move) and
+         * move/MOC too slow (upper bound 1MOC/move).
+         * As a result the smallest unit of aim time is 10 moves. */
+        int aim_per_time( const item& gun, int recoil ) const;
 
         /** Combat getters */
         virtual int get_dodge_base() const override;
         virtual int get_hit_base() const override;
 
         /** Handles health fluctuations over time */
-        virtual void update_health(int base_threshold = 0);
+        virtual void update_health(int external_modifiers = 0);
 
         /** Resets the value of all bonus fields to 0. */
         virtual void reset_bonuses() override;
@@ -130,11 +169,30 @@ class Character : public Creature
         /** Handles stat and bonus reset. */
         virtual void reset() override;
 
+        /** Recalculates encumbrance cache. */
+        void reset_encumbrance();
+        /** Returns ENC provided by armor, etc. */
+        int encumb( body_part bp ) const;
+
+        /** Get encumbrance for all body parts. */
+        std::array<encumbrance_data, num_bp> get_encumbrance() const;
+        /** Get encumbrance for all body parts as if `new_item` was also worn. */
+        std::array<encumbrance_data, num_bp> get_encumbrance( const item &new_item ) const;
+
+        /** Returns true if the character is wearing active power */
+        bool is_wearing_active_power_armor() const;
+
+        /** Returns true if the player isn't able to see */
+        bool is_blind() const;
+
+        /** Bitset of all the body parts covered only with items with `flag` (or nothing) */
+        std::bitset<num_bp> exclusive_flag_coverage( const std::string &flag ) const;
+
         /** Processes effects which may prevent the Character from moving (bear traps, crushed, etc.).
          *  Returns false if movement is stopped. */
         virtual bool move_effects(bool attacking) override;
         /** Performs any Character-specific modifications to the arguments before passing to Creature::add_effect(). */
-        virtual void add_effect( efftype_id eff_id, int dur, body_part bp = num_bp, bool permanent = false,
+        virtual void add_effect( const efftype_id &eff_id, int dur, body_part bp = num_bp, bool permanent = false,
                                  int intensity = 0, bool force = false ) override;
         /**
          * Handles end-of-turn processing.
@@ -171,8 +229,12 @@ class Character : public Creature
         virtual bool has_trait(const std::string &flag) const override;
         /** Returns true if the player has the entered starting trait */
         bool has_base_trait(const std::string &flag) const;
+        /** Returns true if player has a trait with a flag */
+        bool has_trait_flag( const std::string &flag ) const;
+        /** Returns true if player has a bionic with a flag */
+        bool has_bionic_flag( const std::string &flag ) const;
         /** Returns the trait id with the given invlet, or an empty string if no trait has that invlet */
-        std::string trait_by_invlet( char ch ) const;
+        std::string trait_by_invlet( long ch ) const;
 
         /** Toggles a trait on the player and in their mutation list */
         void toggle_trait(const std::string &flag);
@@ -188,10 +250,12 @@ class Character : public Creature
         hp_part body_window( const std::string &menu_header,
                              bool show_all, bool precise,
                              int normal_bonus, int head_bonus, int torso_bonus,
-                             int bleed, int bite, int infect ) const;
+                             bool bleed, bool bite, bool infect ) const;
 
         // Returns color which this limb would have in healing menus
         nc_color limb_color( body_part bp, bool bleed, bool bite, bool infect ) const;
+
+        bool made_of( const material_id &m ) const override;
 
  private:
         /** Retrieves a stat mod of a mutation. */
@@ -199,6 +263,16 @@ class Character : public Creature
  protected:
         /** Applies stat mods to character. */
         void apply_mods(const std::string &mut, bool add_remove);
+
+        /** Recalculate encumbrance for all body parts. */
+        std::array<encumbrance_data, num_bp> calc_encumbrance() const;
+        /** Recalculate encumbrance for all body parts as if `new_item` was also worn. */
+        std::array<encumbrance_data, num_bp> calc_encumbrance( const item &new_item ) const;
+
+        /** Applies encumbrance from mutations and bionics only */
+        void mut_cbm_encumb( std::array<encumbrance_data, num_bp> &vals ) const;
+        /** Applies encumbrance from items only */
+        void item_encumb( std::array<encumbrance_data, num_bp> &vals, const item &new_item ) const;
  public:
         /** Handles things like destruction of armor, etc. */
         void mutation_effect(std::string mut);
@@ -239,101 +313,11 @@ class Character : public Creature
             return false;
         }
 
-        /**
-         * Test whether an item in the possession of this player match a
-         * certain filter.
-         * The items might be inside other items (containers / quiver / etc.),
-         * the filter is recursively applied to all item contents.
-         * If this returns true, the vector returned by @ref items_with
-         * (with the same filter) will be non-empty.
-         * @param filter some object that when invoked with the () operator
-         * returns true for item that should checked for.
-         * @return Returns true when at least one item matches the filter,
-         * if no item matches the filter it returns false.
-         */
-        template<typename T>
-        bool has_item_with(T filter) const
-        {
-            if( inv.has_item_with( filter ) ) {
-                return true;
-            }
-            if( !weapon.is_null() && inventory::has_item_with_recursive( weapon, filter ) ) {
-                return true;
-            }
-            for( auto &w : worn ) {
-                if( inventory::has_item_with_recursive( w, filter ) ) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        /**
-         * Gather all items that match a certain filter.
-         * The returned vector contains pointers to items in the possession
-         * of this player (can be weapon, worn items or inventory).
-         * The items might be inside other items (containers / quiver / etc.),
-         * the filter is recursively applied to all item contents.
-         * The items should not be changed directly, the pointers can be used
-         * with @ref i_rem, @ref reduce_charges. The pointers are *not* suitable
-         * for @ref get_item_position because the returned index can only
-         * refer to items directly in the inventory (e.g. -1 means the weapon,
-         * there is no index for the content of the weapon).
-         * @param filter some object that when invoked with the () operator
-         * returns true for item that should be returned.
-         */
-        template<typename T>
-        std::vector<const item *> items_with(T filter) const
-        {
-            auto result = inv.items_with( filter );
-            if( !weapon.is_null() ) {
-                inventory::items_with_recursive( result, weapon, filter );
-            }
-            for( auto &w : worn ) {
-                inventory::items_with_recursive( result, w, filter );
-            }
-            return result;
-        }
+        /** Returns a map_selector which can be used to query items on nearby tiles
+         *  @param radius number of adjacent tiles to include searching from pos outwards
+         *  @param accessible whether found items must be accesible from pos to be considered */
+        map_selector nearby( int radius = 1, bool accessible = true );
 
-        template<typename T>
-        std::vector<item *> items_with(T filter)
-        {
-            auto result = inv.items_with( filter );
-            if( !weapon.is_null() ) {
-                inventory::items_with_recursive( result, weapon, filter );
-            }
-            for( auto &w : worn ) {
-                inventory::items_with_recursive( result, w, filter );
-            }
-            return result;
-        }
-        /**
-         * Removes the items that match the given filter.
-         * The returned items are a copy of the removed item.
-         * If no item has been removed, an empty list will be returned.
-         */
-        template<typename T>
-        std::list<item> remove_items_with( T filter )
-        {
-            // player usually interacts with items in the inventory the most (?)
-            std::list<item> result = inv.remove_items_with( filter );
-            for( auto iter = worn.begin(); iter != worn.end(); ) {
-                item &article = *iter;
-                if( filter( article ) ) {
-                    result.splice( result.begin(), worn, iter++ );
-                } else {
-                    result.splice( result.begin(), article.remove_items_with( filter ) );
-                    ++iter;
-                }
-            }
-            if( !weapon.is_null() ) {
-                if( filter( weapon ) ) {
-                    result.push_back( remove_weapon() );
-                } else {
-                    result.splice( result.begin(), weapon.remove_items_with( filter ) );
-                }
-            }
-            return result;
-        }
         /**
          * Similar to @ref remove_items_with, but considers only worn items and not their
          * content (@ref item::contents is not checked).
@@ -353,6 +337,20 @@ class Character : public Creature
         int get_item_position( const item *it ) const;
 
         item &i_add(item it);
+
+        /**
+         * Try to pour the given liquid into the given container/vehicle. The transferred charges are
+         * removed from the liquid item. Check the charges of afterwards to see if anything has
+         * been transferred at all.
+         * The functions do not consume any move points.
+         * @return Whether anything has been moved at all. `false` indicates the transfer is not
+         * possible at all. `true` indicates at least some of the liquid has been moved.
+         */
+        /**@{*/
+        bool pour_into( item &container, item &liquid );
+        bool pour_into( vehicle &veh, item &liquid );
+        /**@}*/
+
         /**
          * Remove a specific item from player possession. The item is compared
          * by pointer. Contents of the item are removed as well.
@@ -390,8 +388,16 @@ class Character : public Creature
          */
         std::vector<const item *> get_ammo( const ammotype &at ) const;
 
-        /** Returns true if the character's current weapon can be reloaded (ammo must be available). */
-        bool can_reload();
+        /**
+         * Searches for ammo or magazines that can be used to reload obj
+         * @param obj item to be reloaded. By design any currently loaded ammunition or magazine is ignored
+         * @param empty whether empty magazines should be considered as possible ammo
+         * @param radius adjacent map/vehicle tiles to search. 0 for only player tile, -1 for only inventory
+         */
+        std::vector<item_location> find_ammo( const item& obj, bool empty = true, int radius = 1 );
+
+        /** Maximum thrown range with a given item, taking all active effects into account. */
+        int throw_range( const item & ) const;
 
         int weight_carried() const;
         int volume_carried() const;
@@ -400,7 +406,7 @@ class Character : public Creature
         bool can_pickVolume(int volume, bool safe = false) const;
         bool can_pickWeight(int weight, bool safe = true) const;
 
-        void drop_inventory_overflow();
+        virtual void drop_inventory_overflow();
 
         bool has_artifact_with(const art_effect_passive effect) const;
 
@@ -410,17 +416,20 @@ class Character : public Creature
         /** Returns true if the player is wearing the item on the given body_part. */
         bool is_wearing_on_bp(const itype_id &it, body_part bp) const;
         /** Returns true if the player is wearing an item with the given flag. */
-        bool worn_with_flag( std::string flag ) const;
+        bool worn_with_flag( const std::string &flag ) const;
 
         // --------------- Skill Stuff ---------------
-        SkillLevel &skillLevel(const Skill* _skill);
-        SkillLevel &skillLevel(Skill const &_skill);
-        SkillLevel &skillLevel(const skill_id &ident);
+        SkillLevel &get_skill_level( const skill_id &ident );
 
         /** for serialization */
-        SkillLevel const& get_skill_level(const Skill* _skill) const;
-        SkillLevel const& get_skill_level(const Skill &_skill) const;
         SkillLevel const& get_skill_level(const skill_id &ident) const;
+        void set_skill_level( const skill_id &ident, int level );
+        void boost_skill_level( const skill_id &ident, int delta );
+
+        bool meets_skill_requirements( const std::map<skill_id, int> &req ) const;
+
+        /** Return character dispersion penalty dependent upon relevant gun skill level */
+        int skill_dispersion( const item& gun, bool random ) const;
 
         // --------------- Other Stuff ---------------
 
@@ -443,13 +452,27 @@ class Character : public Creature
         virtual void normalize() override;
         virtual void die(Creature *nkiller) override;
 
+        std::string get_name() const override;
+
+        /**
+         * It is supposed to hide the query_yn to simplify player vs. npc code.
+         */
+        virtual bool query_yn( const char *mes, ... ) const = 0;
+
+        bool is_dangerous_field( const field &fld ) const;
+        bool is_dangerous_field( const field_entry &entry ) const;
+        bool is_dangerous_field( const field_id fid ) const;
+
         /** Returns true if the player has some form of night vision */
         bool has_nv();
+
+        /** Color's character's tile's background */
+        nc_color symbol_color() const override;
 
         // In newcharacter.cpp
         void empty_skills();
         /** Returns a random name from NAMES_* */
-        void pick_name();
+        void pick_name(bool bUseDefault = false);
         /** Get the idents of all base traits. */
         std::vector<std::string> get_base_traits() const;
         /** Get the idents of all traits/mutations. */
@@ -477,6 +500,13 @@ class Character : public Creature
         item ret_null; // Null item, sometimes returns by weapon() etc
 
         std::vector<bionic> my_bionics;
+
+    protected:
+        virtual void on_stat_change( const std::string &, int ) override {};
+        virtual void on_mutation_gain( const std::string & ) {};
+        virtual void on_mutation_loss( const std::string & ) {};
+        virtual void on_item_wear( const item & ) {};
+        virtual void on_item_takeoff( const item & ) {};
 
     protected:
         Character();
@@ -512,6 +542,8 @@ class Character : public Creature
         int healthy;
         int healthy_mod;
 
+        std::array<encumbrance_data, num_bp> encumbrance_cache;
+
         /**
          * Traits / mutations of the character. Key is the mutation id (it's also a valid
          * key into @ref mutation_data), the value describes the status of the mutation.
@@ -528,10 +560,7 @@ class Character : public Creature
         void load(JsonObject &jsin);
 
         // --------------- Values ---------------
-        /** Needs (hunger, thirst, fatigue, etc.) */
-        int hunger, stomach_food, stomach_water;
-
-        std::map<const Skill*, SkillLevel> _skills;
+        std::map<skill_id, SkillLevel> _skills;
 
         // Cached vision values.
         std::bitset<NUM_VISION_MODES> vision_mode_cache;
@@ -539,6 +568,15 @@ class Character : public Creature
 
         // turn the character expired, if -1 it has not been set yet.
         int turn_died = -1;
+
+    private:
+        /** Needs (hunger, thirst, fatigue, etc.) */
+        int hunger;
+        int thirst;
+        int fatigue;
+
+        int stomach_food;
+        int stomach_water;
 };
 
 #endif

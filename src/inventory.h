@@ -1,6 +1,7 @@
 #ifndef INVENTORY_H
 #define INVENTORY_H
 
+#include "visitable.h"
 #include "item.h"
 #include "enums.h"
 
@@ -13,8 +14,6 @@
 class map;
 class npc;
 
-const extern std::string inv_chars;
-
 typedef std::list< std::list<item> > invstack;
 typedef std::vector< std::list<item>* > invslice;
 typedef std::vector< const std::list<item>* > const_invslice;
@@ -23,9 +22,37 @@ typedef std::function<bool(const item &)> item_filter;
 
 class salvage_actor;
 
-class inventory
+/**
+ * Wrapper to handled a set of valid "inventory" letters. "inventory" can be any set of
+ * objects that the player can access via a single character (e.g. bionics).
+ * The class is (currently) derived from std::string for compatibility and because it's
+ * simpler. But it may be changed to derive from `std::set<long>` or similar to get the full
+ * range of possible characters.
+ */
+class invlet_wrapper : private std::string {
+private:
+
+public:
+    invlet_wrapper( const char *chars ) : std::string( chars ) { }
+
+    bool valid( long invlet ) const;
+    std::string get_allowed_chars() const { return *this; }
+
+    using std::string::begin;
+    using std::string::end;
+    using std::string::rbegin;
+    using std::string::rend;
+    using std::string::size;
+    using std::string::length;
+};
+
+const extern invlet_wrapper inv_chars;
+
+class inventory : public visitable<inventory>
 {
     public:
+        friend visitable<inventory>;
+
         invslice slice();
         const_invslice const_slice() const;
         const std::list<item> &const_stack(int i) const;
@@ -47,14 +74,7 @@ class inventory
         inventory  operator+  (const item &rhs);
         inventory  operator+  (const std::list<item> &rhs);
 
-        static bool has_activation(const item &it, const player &u);
-        static bool has_capacity_for_liquid(const item &it, const item &liquid);
-
-        indexed_invslice slice_filter();  // unfiltered, but useful for a consistent interface.
-        indexed_invslice slice_filter_by_activation(const player &u);
-        indexed_invslice slice_filter_by_capacity_for_liquid(const item &liquid);
-        indexed_invslice slice_filter_by_flag(const std::string flag);
-        indexed_invslice slice_filter_by_salvageability(const salvage_actor &actor);
+        indexed_invslice indexed_slice_filter_by( item_filter filter ) const;
 
         void unsort(); // flags the inventory as unsorted
         void sort();
@@ -116,31 +136,15 @@ class inventory
 
         // Below, "amount" refers to quantity
         //        "charges" refers to charges
-        int  amount_of (itype_id it) const;
-        int  amount_of (itype_id it, bool used_as_tool) const;
-        long charges_of(itype_id it) const;
+        std::list<item> use_amount (itype_id it, int quantity);
 
-        std::list<item> use_amount (itype_id it, int quantity, bool use_container = false);
-        std::list<item> use_charges(itype_id it, long quantity);
-
-        bool has_amount (itype_id it, int quantity) const;
-        bool has_amount (itype_id it, int quantity, bool used_as_tool) const;
         bool has_tools (itype_id it, int quantity) const;
         bool has_components (itype_id it, int quantity) const;
         bool has_charges(itype_id it, long quantity) const;
-        /**
-         * Check whether a specific item is in this inventory.
-         * The item is compared by pointer.
-         * @param it A pointer to the item to be looked for.
-         */
-        bool has_item(const item *it) const;
-        bool has_items_with_quality(std::string id, int level, int amount) const;
 
         static int num_items_at_position( int position );
 
         int leak_level(std::string flag) const; // level of leaked bad stuff from items
-
-        int butcher_factor() const;
 
         // NPC/AI functions
         int worst_item_value(npc *p) const;
@@ -174,118 +178,6 @@ class inventory
 
         std::set<char> allocated_invlets() const;
 
-        template<typename T>
-        indexed_invslice slice_filter_by( T filter )
-        {
-            int i = 0;
-            indexed_invslice stacks;
-            for( auto &elem : items ) {
-                if( filter( elem.front() ) ) {
-                    stacks.push_back( std::make_pair( &elem, i ) );
-                }
-                ++i;
-            }
-            return stacks;
-        }
-
-        template<typename T>
-        static void items_with_recursive( std::vector<const item *> &vec, const item &it, T filter )
-        {
-            if( filter( it ) ) {
-                vec.push_back( &it );
-            }
-            for( auto &c : it.contents ) {
-                items_with_recursive( vec, c, filter );
-            }
-        }
-        // Non-const variant of the above
-        template<typename T>
-        static void items_with_recursive( std::vector<item *> &vec, item &it, T filter )
-        {
-            if( filter( it ) ) {
-                vec.push_back( &it );
-            }
-            for( auto &c : it.contents ) {
-                items_with_recursive( vec, c, filter );
-            }
-        }
-
-        template<typename T>
-        static bool has_item_with_recursive( const item &it, T filter )
-        {
-            if( filter( it ) ) {
-                return true;
-            }
-            for( auto &c : it.contents ) {
-                if( has_item_with_recursive( c, filter ) ) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        template<typename T>
-        bool has_item_with(T filter) const
-        {
-            for( auto &stack : items ) {
-                for( auto &it : stack ) {
-                    if( has_item_with_recursive( it, filter ) ) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-        template<typename T>
-        std::vector<const item *> items_with(T filter) const
-        {
-            std::vector<const item *> result;
-            for( auto &stack : items ) {
-                for( auto &it : stack ) {
-                    items_with_recursive( result, it, filter );
-                }
-            }
-            return result;
-        }
-        // Non-const variant of the above
-        template<typename T>
-        std::vector<item *> items_with(T filter)
-        {
-            std::vector<item *> result;
-            for( auto &stack : items ) {
-                for( auto &it : stack ) {
-                    items_with_recursive( result, it, filter );
-                }
-            }
-            return result;
-        }
-        
-        template<typename T>
-        std::list<item> remove_items_with( T filter )
-        {
-            std::list<item> result;
-            for( auto items_it = items.begin(); items_it != items.end(); ) {
-                auto &stack = *items_it;
-                for( auto stack_it = stack.begin(); stack_it != stack.end(); ) {
-                    if( filter( *stack_it ) ) {
-                        result.push_back( std::move( *stack_it ) );
-                        stack_it = stack.erase( stack_it );
-                        if( stack_it == stack.begin() && !stack.empty() ) {
-                            // preserve the invlet when removing the first item of a stack
-                            stack_it->invlet = result.back().invlet;
-                        }
-                    } else {
-                        result.splice( result.begin(), stack_it->remove_items_with( filter ) );
-                        ++stack_it;
-                    }
-                }
-                if( stack.empty() ) {
-                    items_it = items.erase( items_it );
-                } else {
-                    ++items_it;
-                }
-            }
-            return result;
-        }
     private:
         // For each item ID, store a set of "favorite" inventory letters.
         std::map<std::string, std::vector<char> > invlet_cache;

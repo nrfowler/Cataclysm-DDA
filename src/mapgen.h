@@ -131,7 +131,7 @@ protected:
     jmapgen_piece() { }
 public:
     /** Place something on the map m at (x,y). mon_density */
-    virtual void apply( map &m, size_t x, size_t y, float mon_density ) const = 0;
+    virtual void apply( map &m, const jmapgen_int &x, const jmapgen_int &y, float mon_density ) const = 0;
     virtual ~jmapgen_piece() { }
 };
 
@@ -179,10 +179,10 @@ private:
 
 class mapgen_function_json : public virtual mapgen_function {
     public:
-    bool check_inbounds( const jmapgen_int & var ) const;
-    void setup_setmap(JsonArray &parray);
+    bool check_inbounds( const jmapgen_int &var ) const;
+    void setup_setmap( JsonArray &parray );
     virtual bool setup() override;
-    virtual void generate(map*, oter_id, mapgendata, int, float) override;
+    virtual void generate(map *, oter_id, mapgendata, int, float) override;
 
     mapgen_function_json( std::string s, int w = 1000 );
     ~mapgen_function_json() {
@@ -193,7 +193,7 @@ class mapgen_function_json : public virtual mapgen_function {
     std::string jdata;
     size_t mapgensize;
     ter_id fill_ter;
-    std::unique_ptr<ter_furn_id[]> format;
+    std::vector<ter_furn_id> format;
     std::vector<jmapgen_setmap> setmap_points;
 
     /**
@@ -216,6 +216,8 @@ class mapgen_function_json : public virtual mapgen_function {
 private:
     jmapgen_objects objects;
     jmapgen_int rotation;
+
+    void formatted_set_incredibly_simple( map *m ) const;
 };
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -309,6 +311,9 @@ void square(map *m, ter_id (*f)(), int x1, int y1, int x2, int y2);
 void square_furn(map *m, furn_id type, int x1, int y1, int x2, int y2);
 void rough_circle(map *m, ter_id type, int x, int y, int rad);
 void rough_circle_furn(map *m, furn_id type, int x, int y, int rad);
+void circle(map *m, ter_id type, double x, double y, double rad);
+void circle(map *m, ter_id type, int x, int y, int rad);
+void circle_furn(map *m, furn_id type, int x, int y, int rad);
 void add_corpse(map *m, int x, int y);
 
 typedef void (*map_special_pointer)(map &m, const tripoint &abs_sub);

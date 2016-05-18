@@ -7,7 +7,7 @@
     "default_faction":"",
     "symbol":"X",
     "color":"white",
-    "size":"medium",
+    "size":"MEDIUM",
     "material":"flesh",
     "diff":1,
     "aggression":100,
@@ -51,7 +51,12 @@
     "vision_night":20,
     "hp":10,
     "death_function":"NORMAL",
-    "special_attacks":[["BITE", 0]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 0
+        }
+    ],
     "description":"One of the vesper bats, a family of winged insect-eating mammals.  It roosts in caves and other hollows, and uses a form of echolocation to aerially navigate through tricky terrain at rapid speeds.",
     "flags":["SEES", "SMELLS", "HEARS", "GOODHEARING", "WARM", "FLIES", "ANIMAL", "BONES", "LEATHER"],
     "fear_triggers":["SOUND", "PLAYER_CLOSE"],
@@ -170,7 +175,13 @@
     "death_function":"SMOKEBURST",
     "description":"A smoking husk is all that remains of this once proud bear.  Its black eyes gaze at you with malice... and hunger.",
     "flags":["SEES", "HEARS", "SMELLS", "ANIMAL", "WARM", "FUR", "BLEED", "BASHES", "ATTACKMON", "BONES", "FAT", "FIREPROOF", "NO_BREATHE", "POISON"],
-    "special_attacks":[["SMOKECLOUD", 1], ["BITE", 5]],
+    "special_attacks":[
+        ["SMOKECLOUD", 1],
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        }
+    ],
     "anger_triggers":["HURT", "PLAYER_CLOSE"],
     "placate_triggers":["MEAT"],
     "categories":["WILDLIFE"]
@@ -313,9 +324,15 @@
     "vision_night":10,
     "hp":60,
     "death_function":"NORMAL",
-    "special_attacks":[["LEAP", 5]],
+    "special_attacks":[
+        {
+            "type" : "leap",
+            "cooldown" : 5,
+            "max_range" : 5
+        }
+    ],
     "description":"The Eastern cougar, a large feline predator.  Once thought extinct in this region, conservation efforts were successful in restoring a thriving population.",
-    "flags":["SEES", "HEARS", "GOODHEARING", "SMELLS", "ANIMAL", "WARM", "FUR", "HIT_AND_RUN", "KEENNOSE", "BLEED", "ATTACKMON", "BONES", "FAT"],
+    "flags":["SEES", "HEARS", "GOODHEARING", "SMELLS", "ANIMAL", "WARM", "FUR", "HIT_AND_RUN", "KEENNOSE", "BLEED", "BONES", "FAT"],
     "anger_triggers":["STALK", "PLAYER_WEAK", "HURT", "PLAYER_CLOSE", "FRIEND_ATTACKED"],
     "placate_triggers":["MEAT"],
     "fear_triggers":["SOUND"],
@@ -383,7 +400,7 @@
     "hp":22,
     "death_function":"NORMAL",
     "description":"The Eastern coyote, also called the tweed wolf, is a territorial canine descended from the offspring of gray wolves and true coyotes.  It is intimidated by humans and other predators, but will fight if threatened.",
-    "flags":["SEES", "HEARS", "SMELLS", "ANIMAL", "WARM", "FUR", "HIT_AND_RUN", "KEENNOSE", "BLEED", "ATTACKMON", "BONES"],
+    "flags":["SEES", "HEARS", "SMELLS", "ANIMAL", "WARM", "FUR", "HIT_AND_RUN", "KEENNOSE", "BLEED", "BONES"],
     "anger_triggers":["STALK", "FRIEND_ATTACKED", "PLAYER_WEAK", "HURT", "PLAYER_CLOSE"],
     "placate_triggers":["MEAT"],
     "categories":["WILDLIFE"]
@@ -413,7 +430,7 @@
     "hp":20,
     "death_function":"NORMAL",
     "description":"The Northeastern coyote, a widespread canine pack hunter.  More timid than a wolf, it is an opportunistic feeder and prefers to hunt smaller and weaker prey.",
-    "flags":["SEES", "HEARS", "SMELLS", "ANIMAL", "WARM", "FUR", "KEENNOSE", "BLEED", "ATTACKMON", "BONES", "FAT"],
+    "flags":["SEES", "HEARS", "SMELLS", "ANIMAL", "WARM", "FUR", "KEENNOSE", "BLEED", "BONES", "FAT"],
     "anger_triggers":["FRIEND_ATTACKED", "PLAYER_WEAK", "PLAYER_CLOSE"],
     "placate_triggers":["MEAT"],
     "categories":["WILDLIFE"]
@@ -476,34 +493,6 @@
     "categories":["WILDLIFE"]
     },{
     "type" : "MONSTER",
-    "id" : "mon_deer_mouse",
-    "name": "deer mouse",
-    "species":"MAMMAL",
-    "default_faction":"vermin",
-    "symbol":".",
-    "color":"brown",
-    "size":"TINY",
-    "material":"flesh",
-    "diff":0,
-    "aggression":-50,
-    "morale":5,
-    "speed":100,
-    "melee_skill":3,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":2,
-    "armor_bash":0,
-    "armor_cut":0,
-    "vision_day":40,
-    "hp":4,
-    "death_function":"NORMAL",
-    "description":"The white-footed mouse, a prolific rodent with a white underbelly and a long fuzzy tail.  A common sight in fields, forests, and research centers.",
-    "flags":["SEES", "SMELLS", "HEARS", "WARM", "SWIMS", "ANIMAL", "VERMIN"],
-    "fear_triggers":["SOUND", "PLAYER_CLOSE"],
-    "categories":["WILDLIFE"]
-    },{
-    "type" : "MONSTER",
     "id" : "mon_dog",
     "name": "dog",
     "species":"MAMMAL",
@@ -528,7 +517,7 @@
     "hp":30,
     "death_function":"NORMAL",
     "description": "With mangy fur and hungry eyes, it's clear that this once domesticated dog has gone feral.",
-    "flags":["SEES", "HEARS", "SMELLS", "ANIMAL", "WARM", "FUR", "HIT_AND_RUN", "KEENNOSE", "BLEED", "ATTACKMON", "BONES", "FAT"],
+    "flags":["SEES", "HEARS", "SMELLS", "ANIMAL", "WARM", "FUR", "HIT_AND_RUN", "KEENNOSE", "BLEED", "BONES", "FAT"],
     "anger_triggers":["HURT", "FRIEND_ATTACKED", "FRIEND_DIED"],
     "placate_triggers":["MEAT"],
     "categories":["WILDLIFE"]
@@ -1002,33 +991,6 @@
     "fear_triggers":["FIRE"]
     },{
     "type" : "MONSTER",
-    "id" : "mon_shrew",
-    "name": "shrew",
-    "species":"MAMMAL",
-    "default_faction":"vermin",
-    "symbol":".",
-    "color":"ltgray",
-    "size":"TINY",
-    "material":"flesh",
-    "diff":0,
-    "aggression":-99,
-    "morale":-70,
-    "speed":70,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":2,
-    "armor_bash":0,
-    "armor_cut":0,
-    "hp":4,
-    "death_function":"NORMAL",
-    "description":"The masked shrew, a mouse-like creature with a pointed, whiskery snout.  It digs tunnels into the ground in search of bugs to eat.",
-    "flags":["SEES", "HEARS", "SMELLS", "ANIMAL", "WARM", "VERMIN"],
-    "fear_triggers":["SOUND", "PLAYER_CLOSE"],
-    "categories":["WILDLIFE"]
-    },{
-    "type" : "MONSTER",
     "id" : "mon_squirrel",
     "name": "squirrel",
     "species":"MAMMAL",
@@ -1136,7 +1098,7 @@
     "hp":40,
     "death_function":"NORMAL",
     "description":"A cunning pack predator, once extinct in the New England area, the wolf was successfully reintroduced and their numbers reached record highs in the decade before the cataclysm.  Lucky you.",
-    "flags":["SEES", "HEARS", "SMELLS", "ANIMAL", "WARM", "FUR", "KEENNOSE", "BLEED", "ATTACKMON", "BONES", "FAT"],
+    "flags":["SEES", "HEARS", "SMELLS", "ANIMAL", "WARM", "FUR", "KEENNOSE", "BLEED", "BONES", "FAT"],
     "anger_triggers":["STALK", "FRIEND_ATTACKED", "FRIEND_DIED", "PLAYER_WEAK", "PLAYER_CLOSE"],
     "placate_triggers":["MEAT"],
     "categories":["WILDLIFE"]
@@ -1272,7 +1234,7 @@
     "vision_day":3,
     "vision_night":3,
     "hp":40,
-    "death_function":"NORMAL",
+    "death_function": ["NORMAL", "FUNGUS"],
     "special_attacks":[["FUNGUS", 200]],
     "description":"Pale, sickly gray in color, this giant ant's cracked exoskeleton is barely held together by coils of fungus erupting from every joint in its body.",
     "flags":["SEES", "SMELLS", "POISON", "CLIMBS"]
@@ -1505,9 +1467,16 @@
         "into_group": "GROUP_ZOMBIE_UPGRADE",
         "half_life": 28
     },
+    "burn_into" : "mon_zombie_scorched",
     "hp":80,
     "death_function":"NORMAL",
-    "special_attacks":[["BITE", 5], ["GRAB", 7]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        },
+        ["GRAB", 7]
+    ],
     "description":"A human body, swaying as it moves, an unstoppable rage is visible in its oily black eyes.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "BLEED", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"],
     "categories":["CLASSIC"]
@@ -1539,9 +1508,16 @@
         "into_group": "GROUP_ZOMBIE_FAT",
         "half_life": 10
     },
+    "burn_into" : "mon_zombie_scorched",
     "hp":95,
     "death_function":["NORMAL"],
-    "special_attacks":[["BITE", 5]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 5,
+            "min_mul" : 0.75, "//" : "Fat zombies have stronger jaws"
+        }
+    ],
     "description":"Stumbling as it moves, this corpse of an overweight human regards its surroundings with an empty black gaze.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "BLEED", "NO_BREATHE", "REVIVES", "BONES", "FAT", "PUSH_MON"],
     "categories":["CLASSIC"]
@@ -1569,9 +1545,17 @@
     "vision_day":40,
     "vision_night":3,
     "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "hp":100,
     "death_function":["NORMAL"],
-    "special_attacks":[["BITE", 5], ["GRAB", 7]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 5,
+            "min_mul" : 0.7
+        },
+        ["GRAB", 7]
+    ],
     "description":"Once an athletic human, now a brutal monster.  Its facial features are twisted into an expression of pure rage.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "BLEED", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"],
     "categories":["CLASSIC"]
@@ -1599,9 +1583,15 @@
     "vision_day":10,
     "vision_night":1,
     "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "hp":60,
     "death_function":["NORMAL"],
-    "special_attacks":[["BITE", 5]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        }
+    ],
     "description":"This human corpse drags itself along slowly with its arms.  Its legs are damaged beyond repair.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GRABS", "POISON", "BLEED", "NO_BREATHE", "REVIVES", "BONES"],
     "categories":["CLASSIC"]
@@ -1629,6 +1619,7 @@
     "vision_day":40,
     "vision_night":3,
     "death_drops": "mon_zombie_hazmat_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "hp":80,
     "death_function":["NORMAL"],
     "special_attacks":[["GRAB", 7]],
@@ -1656,9 +1647,12 @@
     "dodge":0,
     "armor_bash":6,
     "armor_cut":6,
+    "armor_acid":3,
+    "armor_fire":10,
     "vision_day":40,
     "vision_night":3,
     "death_drops": "mon_zombie_fireman_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "hp":80,
     "death_function":["NORMAL"],
     "special_attacks":[["GRAB", 7]],
@@ -1686,12 +1680,22 @@
     "dodge":3,
     "armor_bash":7,
     "armor_cut":7,
+    "armor_acid":4,
     "vision_day":50,
     "vision_night":3,
     "death_drops": "mon_zombie_survivor_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "hp":120,
     "death_function":["NORMAL"],
-    "special_attacks":[["SHRIEK", 20], ["BITE", 5], ["GRAB", 7]],
+    "special_attacks":[
+        ["SHRIEK", 20],
+        {
+            "type" : "bite",
+            "cooldown" : 5,
+            "min_mul" : 1.0
+        },
+        ["GRAB", 7]
+    ],
     "description":"Still wearing the tattered remnants of improvised armor and weaponry, it is plain to see that this zombie was once a survivor like you.",
     "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"]
     },{
@@ -1708,7 +1712,7 @@
     "aggression":100,
     "morale":100,
     "speed":70,
-    "melee_skill":3,
+    "melee_skill":1,
     "melee_dice":2,
     "melee_dice_sides":2,
     "melee_cut":0,
@@ -1718,12 +1722,90 @@
     "vision_day":40,
     "vision_night":3,
     "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "hp":55,
     "death_function":["NORMAL"],
-    "special_attacks":[["BITE", 2], ["GRAB", 7]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 2,
+            "accuracy" : 3,
+            "no_infection_chance" : 10
+        },
+        ["GRAB", 7]
+    ],
     "description":"A once-dead human corpse.  Its discolored swollen flesh is riddled with festering wounds and open sores.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "BLEED", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"],
     "categories":["CLASSIC"]
+    },{
+        "type" : "MONSTER",
+        "id" : "mon_zombie_scorched",
+        "name": "scorched zombie",
+        "species":"ZOMBIE",
+        "default_faction":"zombie",
+        "symbol":"Z",
+        "color":"i_brown",
+        "size":"MEDIUM",
+        "material":"flesh",
+        "diff":1,
+        "aggression":100,
+        "morale":100,
+        "speed":60,
+        "melee_skill":2,
+        "melee_dice":2,
+        "melee_dice_sides":2,
+        "melee_cut":0,
+        "dodge":0,
+        "armor_bash":2,
+        "armor_cut":9,
+        "armor_fire":10,
+        "armor_acid":3,
+        "vision_day":10,
+        "vision_night":5,
+        "upgrades":{
+            "into_group": "GROUP_ZOMBIE_UPGRADE",
+            "half_life": 28
+        },
+        "hp":40,
+        "death_function":["SMOKEBURST", "NORMAL"],
+        "special_attacks":[["GRAB", 7]],
+        "description":"Heavily burned zombie that still reeks of charred flesh.  Its flesh has mended into a leathery shell.",
+        "flags":["SEES", "HEARS", "STUMBLES", "POISON", "BLEED", "NO_BREATHE", "REVIVES", "REVIVES_HEALTHY", "NO_NECRO", "BONES"]
+    },{
+        "type" : "MONSTER",
+        "id" : "mon_zombie_fiend",
+        "name": "fiend",
+        "species":"ZOMBIE",
+        "default_faction":"zombie",
+        "symbol":"Z",
+        "color":"black_white",
+        "size":"MEDIUM",
+        "material":"flesh",
+        "diff":10,
+        "aggression":100,
+        "morale":100,
+        "speed":100,
+        "melee_skill":4,
+        "melee_dice":1,
+        "melee_dice_sides":10,
+        "melee_cut":14,
+        "dodge":0,
+        "armor_bash":6,
+        "armor_cut":12,
+        "armor_fire":12,
+        "armor_acid":5,
+        "vision_day":10,
+        "vision_night":8,
+        "upgrades":{
+            "into": "mon_zombie_brute",
+            "half_life": 8
+        },
+        "burn_into" : "mon_zombie_scorched",
+        "hp":100,
+        "death_function":["NORMAL"],
+        "special_attacks":[["GRAB", 7]],
+        "description":"Charred zombie with bony plates, spikes and protursions.  Moves stiffly, but swiftly.",
+        "flags":["SEES", "STUMBLES", "POISON", "BLEED", "NO_BREATHE", "REVIVES", "REVIVES_HEALTHY", "NO_NECRO", "BONES"]
     },{
     "type" : "MONSTER",
     "id" : "mon_zombie_cop",
@@ -1745,9 +1827,11 @@
     "dodge":0,
     "armor_bash":6,
     "armor_cut":6,
+    "armor_stab":6,
     "vision_day":30,
     "vision_night":3,
     "death_drops": "mon_zombie_cop_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "hp":80,
     "death_function":["NORMAL"],
     "special_attacks":[["GRAB", 7]],
@@ -1778,11 +1862,46 @@
     "vision_day":50,
     "vision_night":4,
     "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
+    "upgrades":{
+      "into": "mon_zombie_screecher",
+      "half_life": 10
+    },
     "hp":60,
     "death_function":["NORMAL"],
     "special_attacks":[["SHRIEK", 10], ["GRAB", 7]],
     "description":"An elongated human body with a swollen chest and a gaping hole where its jaw used to be.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"]
+    },{
+    "type" : "MONSTER",
+    "id" : "mon_zombie_screecher",
+    "name": "screecher zombie",
+    "species":"ZOMBIE",
+    "default_faction":"zombie",
+    "symbol":"Z",
+    "color":"magenta_cyan",
+    "size":"MEDIUM",
+    "material":"flesh",
+    "diff":15,
+    "aggression":100,
+    "morale":100,
+    "speed":100,
+    "melee_skill":5,
+    "melee_dice":3,
+    "melee_dice_sides":4,
+    "melee_cut":5,
+    "dodge":2,
+    "armor_bash":0,
+    "armor_cut":0,
+    "vision_day":50,
+    "vision_night":8,
+    "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
+    "hp":85,
+    "death_function":["NORMAL"],
+    "special_attacks":[["SHRIEK_ALERT", 20], ["SHRIEK_STUN", 1]],
+    "description":"A thin corpse, its chest is swollen in what appears to be preparation.  A thick black ooze drips from its open mouth.",
+    "flags":["SEES", "KEENNOSE", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE", "REVIVES", "BONES"]
     },{
     "type" : "MONSTER",
     "id" : "mon_zombie_acidic",
@@ -1807,6 +1926,7 @@
     "vision_day":40,
     "vision_night":3,
     "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "upgrades":{
       "into": "mon_zombie_spitter",
       "half_life": 10
@@ -1840,6 +1960,7 @@
     "vision_day":40,
     "vision_night":3,
     "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "upgrades":{
       "into": "mon_zombie_corrosive",
       "half_life": 28
@@ -1864,20 +1985,22 @@
     "morale":100,
     "speed":75,
     "melee_skill":1,
-    "melee_dice":5,
-    "melee_dice_sides":8,
+    "melee_dice":1,
+    "melee_dice_sides":6,
     "melee_cut":0,
     "dodge":0,
     "armor_bash":10,
-    "armor_cut":10,
+    "armor_cut":2,
+    "armor_stab":12,
     "vision_day":40,
     "vision_night":3,
     "death_drops": "default_zombie_death_drops",
-    "luminance":8,
+    "burn_into" : "mon_zombie_scorched",
+    "luminance":0,
     "hp":140,
     "death_function":["ACID", "NORMAL"],
-    "special_attacks":[["ACID_ACCURATE", 3]],
-    "special_when_hit":["ACIDSPLASH", 50],
+    "special_attacks":[["ACID_ACCURATE", 5], ["ACID_BARF", 5]],
+    "special_when_hit":["ACIDSPLASH", 100],
     "description":"This body has swollen to immense proportions, but still manages to hold itself together with semi-congealed acid all over its bloated body.  It clumsily moves around, but attacks with a large reserve of acid.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "ACIDPROOF", "ACID_BLOOD", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"]
     },{
@@ -1907,7 +2030,13 @@
     "luminance":8,
     "hp":85,
     "death_function":["NORMAL"],
-    "special_attacks":[["SHOCKSTORM", 25], ["BITE", 5]],
+    "special_attacks":[
+        ["SHOCKSTORM", 25],
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        }
+    ],
     "special_when_hit":["ZAPBACK", 100],
     "description":"A human body with pale blue flesh, crackling with electrical energy.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "ELECTRIC", "CBM_CIV", "NO_BREATHE",  "REVIVES", "BONES", "PUSH_MON"]
@@ -1932,13 +2061,57 @@
     "dodge":4,
     "armor_bash":0,
     "armor_cut":0,
+    "armor_fire":5,
     "vision_day":50,
     "vision_night":3,
     "hp":75,
     "death_function":"SMOKEBURST",
-    "special_attacks":[["SMOKECLOUD", 1], ["BITE", 5]],
+    "special_attacks":[
+        ["SMOKECLOUD", 1],
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        }
+    ],
     "description":"A blackened and twisted naked human body, strips of flesh hang from its body, and it emits a constant haze of thick black smoke.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "HARDTOSHOOT", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"]
+    },{
+    "type" : "MONSTER",
+    "id" : "mon_zombie_shady",
+    "name": "shady zombie",
+    "species":"ZOMBIE",
+    "default_faction":"zombie",
+    "symbol":"Z",
+    "color":"ltgray",
+    "size":"MEDIUM",
+    "material":"flesh",
+    "diff":3,
+    "aggression":100,
+    "morale":100,
+    "speed":70,
+    "melee_skill":4,
+    "melee_dice":2,
+    "melee_dice_sides":3,
+    "melee_cut":0,
+    "dodge":0,
+    "armor_bash":0,
+    "armor_cut":0,
+    "vision_day":3,
+    "vision_night":40,
+    "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
+    "hp":80,
+    "death_function":"NORMAL",
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        },
+        ["GRAB", 7]
+    ],
+    "description":"An uncanny shadow envelops this creature, as if light itself were too repulsed to touch it.  All you can make out is its shambling, human shaped outline.",
+    "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "BLEED", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON", "NIGHT_INVISIBILITY"],
+    "categories":["CLASSIC"]
     },{
     "type" : "MONSTER",
     "id" : "mon_zombie_swimmer",
@@ -1963,11 +2136,61 @@
     "vision_day":40,
     "vision_night":3,
     "death_drops": "mon_zombie_swimmer_death_drops",
+    "burn_into" : "mon_zombie_scorched",
+    "upgrades":{
+      "into": "mon_zombie_mancroc",
+      "half_life": 28
+    },
     "hp":70,
     "death_function":["NORMAL"],
-    "special_attacks":[["BITE", 5], ["GRAB", 7]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        },
+        ["GRAB", 7]
+    ],
     "description":"A slick and glistening human body.  Its hands and feet are webbed, and it is clad in swimwear.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE", "BLEED", "SWIMS", "REVIVES", "BONES", "PUSH_MON"]
+    },{
+    "type" : "MONSTER",
+    "id" : "mon_zombie_mancroc",
+    "name": "zombie snapper",
+    "species":"ZOMBIE",
+    "default_faction":"zombie",
+    "symbol":"Z",
+    "color":"ltgreen_cyan",
+    "size":"MEDIUM",
+    "material":"flesh",
+    "diff":16,
+    "aggression":100,
+    "morale":100,
+    "speed":100,
+    "melee_skill":4,
+    "melee_dice":3,
+    "melee_dice_sides":5,
+    "melee_cut":6,
+    "dodge":2,
+    "armor_bash":8,
+    "armor_cut":10,
+    "vision_day":25,
+    "vision_night":5,
+    "death_drops": "mon_zombie_swimmer_death_drops",
+    "burn_into" : "mon_zombie_scorched",
+    "hp":120,
+    "death_function":["NORMAL"],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 10,
+            "accuracy" : 6,
+            "damage_max_instance" : [
+                {"damage_type" : "stab", "amount" : 8, "armor_multiplier" : 0.3},
+                {"damage_type" : "bash", "amount" : 16, "armor_multiplier" : 0.3}
+        ]},
+    ["GRAB", 20], ["GRAB_DRAG", 10]],
+    "description":"With a crocodile-like snout and rows of protuding teeth, this swimwear-clad zombie lurks in the water.",
+    "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "BLEED", "GRABS", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON", "SWIMS"]
     },{
     "type" : "MONSTER",
     "id" : "mon_zombie_dog",
@@ -1993,7 +2216,12 @@
     "vision_night":4,
     "hp":36,
     "death_function":"NORMAL",
-    "special_attacks":[["BITE", 5]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        }
+    ],
     "description":"The deformed, animated corpse of a canine, a sinewy beast which can easily outpace its two-legged friends.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "POISON", "NO_BREATHE", "REVIVES", "FUR", "BONES"]
     },{
@@ -2016,12 +2244,19 @@
     "melee_cut":6,
     "dodge":3,
     "armor_bash":0,
-    "armor_cut":16,
+    "armor_cut":10,
+    "armor_stab":20,
+    "armor_acid":3,
     "vision_day":40,
     "vision_night":3,
     "hp":12,
     "death_function":"NORMAL",
-    "special_attacks":[["BITE", 5]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        }
+    ],
     "description":"This canines see-through thin, black veined and scab riddled skin, is tightly compressed around its skeletal frame.",
     "flags":["SEES", "HEARS", "NO_BREATHE", "HARDTOSHOOT", "REVIVES"]
     },{
@@ -2056,7 +2291,12 @@
     },
     "hp":42,
     "death_function":"NORMAL",
-    "special_attacks":[["BITE", 5]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        }
+    ],
     "description":"A zombified version of one of the German shepherd dogs used in law enforcement.  Its deformed body is encased in a protective Kevlar harness.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "POISON", "NO_BREATHE", "REVIVES", "FUR", "BONES", "PUSH_MON"],
     "categories":["CLASSIC"]
@@ -2074,7 +2314,7 @@
     "aggression":100,
     "morale":100,
     "speed":105,
-    "melee_skill":4,
+    "melee_skill":1,
     "melee_dice":1,
     "melee_dice_sides":4,
     "melee_cut":2,
@@ -2085,7 +2325,14 @@
     "vision_night":4,
     "hp":24,
     "death_function":"NORMAL",
-    "special_attacks":[["BITE", 2]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 2,
+            "accuracy" : 4,
+            "no_infection_chance" : 12
+        }
+    ],
     "description":"Acrid smell accompanies this corpse of canine.  Its whole body is covered in chains of pulsing cysts and slime dribbling ulcers.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "POISON", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"]
     },{
@@ -2108,14 +2355,80 @@
     "melee_cut":2,
     "dodge":0,
     "armor_bash":4,
-    "armor_cut":1,
+    "armor_cut":6,
     "vision_day":40,
     "vision_night":4,
     "death_drops": "default_zombie_death_drops",
+    "upgrades":{
+      "into_group": "GROUP_ZOMBIE_BRUTE",
+      "half_life": 28
+    },
+    "burn_into" : "mon_zombie_fiend",
     "hp":120,
     "death_function":["NORMAL"],
     "special_attacks":[["SMASH", 30], ["GRAB", 7]],
     "description":"Its entire body bulges with distended muscles and swollen, festering wounds.",
+    "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"]
+    },{
+    "type" : "MONSTER",
+    "id" : "mon_zombie_brute_ninja",
+    "name": "zombie nightstalker",
+    "species":"ZOMBIE",
+    "default_faction":"zombie",
+    "symbol":"Z",
+    "color":"dkgray_red",
+    "size":"MEDIUM",
+    "material":"flesh",
+    "diff":24,
+    "aggression":100,
+    "morale":100,
+    "speed":90,
+    "melee_skill":5,
+    "melee_dice":4,
+    "melee_dice_sides":4,
+    "melee_cut":4,
+    "dodge":4,
+    "armor_bash":8,
+    "armor_cut":5,
+    "vision_day":5,
+    "vision_night":40,
+    "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_fiend",
+    "hp":200,
+    "death_function":["NORMAL"],
+    "special_attacks":[["SMASH", 40], ["STRETCH_ATTACK", 20], ["LONGSWIPE", 20]],
+    "description":"Somehow this brute hides in the dark like some kind of boogeyman.  Very agile for such a large zombie.",
+    "flags":["SEES", "HEARS", "GOODHEARING", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON", "NIGHT_INVISIBILITY"]
+    },{
+    "type" : "MONSTER",
+    "id" : "mon_zombie_brute_grappler",
+    "name": "zombie wrestler",
+    "species":"ZOMBIE",
+    "default_faction":"zombie",
+    "symbol":"Z",
+    "color":"red_white",
+    "size":"MEDIUM",
+    "material":"flesh",
+    "diff":24,
+    "aggression":100,
+    "morale":100,
+    "speed":95,
+    "melee_skill":7,
+    "melee_dice":3,
+    "melee_dice_sides":8,
+    "melee_cut":1,
+    "dodge":3,
+    "armor_bash":10,
+    "armor_cut":14,
+    "armor_stab":8,
+    "vision_day":40,
+    "vision_night":3,
+    "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_fiend",
+    "hp":280,
+    "death_function":["NORMAL"],
+    "special_attacks":[["SMASH", 30], ["BIO_OP_TAKEDOWN", 20], ["RANGED_PULL", 20], ["GRAB_DRAG", 10]],
+    "description":"A slab of festering muscle the size of a well-toned bodybuilder.  Seems eager to strangle the life from you.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"]
     },{
     "type" : "MONSTER",
@@ -2136,8 +2449,8 @@
     "melee_dice_sides":8,
     "melee_cut":0,
     "dodge":0,
-    "armor_bash":12,
-    "armor_cut":8,
+    "armor_bash":8,
+    "armor_cut":12,
     "vision_day":50,
     "vision_night":4,
     "death_drops": "mon_zombie_hulk_death_drops",
@@ -2167,14 +2480,21 @@
     "dodge":0,
     "armor_bash":3,
     "armor_cut":0,
-    "vision_day":30,
-    "vision_night":3,
+    "vision_day":5,
+    "vision_night":5,
     "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "hp":60,
     "death_function":["NORMAL"],
-    "special_attacks":[["FUNGUS", 200], ["BITE", 5]],
+    "special_attacks":[
+        ["FUNGUS", 200],
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        }
+    ],
     "description":"Once human, fungal tendrils now sprout from its mouth, eyes, and other orifices, holding together a shambling mass of mold-covered flesh.",
-    "flags":["SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE", "BONES", "PUSH_MON"]
+    "flags":["SEES", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE", "BONES", "PUSH_MON"]
     },{
     "type" : "MONSTER",
     "id" : "mon_boomer",
@@ -2261,6 +2581,7 @@
     "vision_day":30,
     "vision_night":3,
     "death_drops": "default_zombie_items",
+    "burn_into" : "mon_zombie_scorched",
     "hp":30,
     "death_function":["FUNGUS", "NORMAL"],
     "special_attacks":[["FUNGUS", 100], ["BOOMER", 20]],
@@ -2315,13 +2636,20 @@
     "melee_cut":4,
     "dodge":2,
     "armor_bash":0,
-    "armor_cut":16,
+    "armor_cut":10,
+    "armor_stab":20,
+    "armor_acid":3,
     "vision_day":30,
     "vision_night":3,
     "death_drops": "default_zombie_clothes",
     "hp":30,
     "death_function":["NORMAL"],
-    "special_attacks":[["BITE", 5]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        }
+    ],
     "description":"With its skin so tight the cracked bones are visible beneath it, covered in scar tissue and coils of scabbed black liquid and with eyes so deeply sunken into its skull they are barely visible, it's a wonder this once-human creature can move at all.",
     "flags":["SEES", "HEARS", "BLEED", "HARDTOSHOOT", "REVIVES", "NO_BREATHE"]
     },{
@@ -2348,6 +2676,7 @@
     "vision_day":50,
     "vision_night":5,
     "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "hp":100,
     "death_function":["NORMAL"],
     "special_attacks":[["RESURRECT", 0]],
@@ -2378,6 +2707,7 @@
     "vision_day":50,
     "vision_night":3,
     "death_drops": "mon_zombie_scientist_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "hp":80,
     "death_function":["NORMAL"],
     "special_attacks":[["SCIENCE", 20]],
@@ -2403,14 +2733,21 @@
     "melee_dice_sides":6,
     "melee_cut":0,
     "dodge":1,
-    "armor_bash":8,
-    "armor_cut":16,
+    "armor_bash":12,
+    "armor_cut":25,
     "vision_day":30,
     "vision_night":3,
     "death_drops": "mon_zombie_soldier_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "hp":100,
     "death_function":["NORMAL"],
-    "special_attacks":[["BITE", 5]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 5,
+            "min_mul" : 0.8
+        }
+    ],
     "description":"Once a soldier, it is dressed head to toe in combat gear and carries itself rather steadily for a zombie.",
     "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "POISON", "BLEED", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"],
     "categories":["CLASSIC"]
@@ -2445,6 +2782,7 @@
         ]
     },
     "starting_ammo" : {"bot_grenade_hack":10, "bot_flashbang_hack":3, "bot_gasbomb_hack":3, "bot_c4_hack":2},
+    "burn_into" : "mon_zombie_scorched",
     "hp":100,
     "death_function":["DETONATE"],
     "special_attacks":[["GRENADIER", 6]],
@@ -2481,6 +2819,7 @@
         ]
     },
     "starting_ammo" : {"bot_grenade_hack":20, "bot_flashbang_hack":10, "bot_gasbomb_hack":10, "bot_c4_hack":10, "bot_mininuke_hack":1},
+    "burn_into" : "mon_zombie_scorched",
     "hp":100,
     "death_function":["DETONATE"],
     "special_attacks":[["GRENADIER_ELITE", 3]],
@@ -2511,12 +2850,18 @@
     "vision_night":3,
     "death_drops": "default_zombie_death_drops",
     "upgrades":{
-      "into": "mon_zombie_grappler",
+      "into_group": "GROUP_ZOMBIE_GRAB",
       "half_life": 14
     },
+    "burn_into" : "mon_zombie_scorched",
     "hp":95,
     "death_function":["NORMAL"],
-    "special_attacks":[["BITE", 5]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        }
+    ],
     "description":"A deformed human body, once living.  Its arms dangle from its sides like the limbs of some skinless ape, mindlessly groping at their surroundings.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "BLEED", "GRABS", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"]
     },{
@@ -2543,12 +2888,60 @@
     "vision_day":30,
     "vision_night":5,
     "death_drops": "default_zombie_death_drops",
-    "luminance":0,
+    "burn_into" : "mon_zombie_scorched",
     "hp":110,
     "death_function":["NORMAL"],
-    "special_attacks":[["RANGED_PULL", 20], ["GRAB_DRAG", 3], ["BITE", 5]],
+    "special_attacks":[
+        ["RANGED_PULL", 20],
+        ["GRAB_DRAG", 3],
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        }
+    ],
     "description":"An undead humanoid, its elongated arms drag along the ground as it moves.  It looks to almost have a hunch from the swollen back and shoulder muscles tearing though its skin.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "BLEED", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"]
+    },{
+    "type" : "MONSTER",
+    "id" : "mon_zombie_biter",
+    "name": "slavering biter",
+    "species":"ZOMBIE",
+    "default_faction":"zombie",
+    "symbol":"Z",
+    "color":"cyan_green",
+    "size":"MEDIUM",
+    "material":"flesh",
+    "diff":15,
+    "aggression":100,
+    "morale":100,
+    "speed":110,
+    "melee_skill":6,
+    "melee_dice":4,
+    "melee_dice_sides":6,
+    "melee_cut":4,
+    "dodge":3,
+    "armor_bash":5,
+    "armor_cut":2,
+    "vision_day":15,
+    "vision_night":3,
+    "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
+    "hp":100,
+    "death_function":["NORMAL"],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 4,
+            "accuracy" : 5,
+            "damage_max_instance" : [
+                {"damage_type" : "stab", "amount" : 10, "armor_multiplier" : 0.3},
+                {"damage_type" : "bash", "amount" : 10, "armor_multiplier" : 0.3}
+            ]
+        },
+        ["GRAB", 4]
+    ],
+    "description":"A distorted and swollen human body.  Its jaws have elongated into a crocodile like snout, dripping with foul smelling saliva.",
+    "flags":["SEES", "HEARS", "SMELLS", "KEENNOSE", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "BLEED", "GRABS", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"]
     },{
     "type" : "MONSTER",
     "id" : "mon_zombie_master",
@@ -2573,6 +2966,7 @@
     "vision_day":50,
     "vision_night":5,
     "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "hp":180,
     "death_function":["NORMAL"],
     "special_attacks":[["UPGRADE", 10]],
@@ -2608,9 +3002,15 @@
             [ "hive", 80 ]
         ]
     },
+    "burn_into" : "mon_zombie_scorched",
     "hp":70,
     "death_function":["NORMAL"],
-    "special_attacks":[["BITE", 5]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        }
+    ],
     "description":"A deformed human body, its skin has been transformed into one thick, calloused envelope of scar tissue.",
     "flags":["HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"]
     },{
@@ -2638,13 +3038,22 @@
     "vision_night":3,
     "item_chance":40,
     "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "upgrades":{
       "into": "mon_zombie_hunter",
       "half_life": 10
     },
     "hp":70,
     "death_function":["NORMAL"],
-    "special_attacks":[ ["BITE", 5]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 5,
+            "damage_max_instance" : [
+                {"damage_type" : "stab", "amount" : 10, "armor_multiplier" : 0.7}
+            ]
+        }
+    ],
     "description":"This recently-risen body moves quickly, darting its head back and forth and gnawing at its hands.",
     "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "POISON", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"]
     },{
@@ -2671,13 +3080,27 @@
     "vision_day":40,
     "vision_night":5,
     "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "upgrades":{
       "into": "mon_zombie_predator",
       "half_life": 28
     },
     "hp":90,
     "death_function":["NORMAL"],
-    "special_attacks":[["LEAP", 5], ["BITE", 5]],
+    "special_attacks":[
+        {
+            "type" : "leap",
+            "cooldown" : 5,
+            "max_range" : 5
+        },
+        {
+            "type" : "bite",
+            "cooldown" : 10,
+            "damage_max_instance" : [
+                {"damage_type" : "stab", "amount" : 12, "armor_multiplier" : 0.7}
+            ]
+        }
+    ],
     "description":"This once-human body is barely recognizable, scrambling about on all fours, its nails and teeth both sharpened into dangerous looking spikes.",
     "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "POISON", "NO_BREATHE", "REVIVES", "BONES", "CLIMBS", "PUSH_MON"]
     },{
@@ -2705,9 +3128,29 @@
     "vision_night":15,
     "item_chance":50,
     "death_drops": "default_zombie_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "hp":90,
     "death_function":["NORMAL"],
-    "special_attacks":[["LEAP", 5], ["BITE", 5], ["IMPALE", 25]],
+    "special_attacks": [
+        {
+            "type" : "leap",
+            "cooldown" : 10,
+            "max_range" : 8,
+            "min_consider_range" : 3,
+            "max_consider_range" : 7,
+            "allow_no_target" : false
+        },
+        {
+            "type" : "bite",
+            "cooldown" : 10,
+            "damage_max_instance" : {
+                "type" : "stab",
+                "amount" : 10,
+                "armor_multiplier" : 0.2
+            }
+        },
+        ["IMPALE", 25]
+    ],
     "description":"With its joints in odd places and angles, this humanoid creature prowls across the landscape with suprising speed.  Its teeth and arms are sharpened into fine points, and black ooze seeps out from cuts between its muscles.",
     "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "POISON", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"]
     },{
@@ -2730,51 +3173,15 @@
     "melee_cut":4,
     "dodge":4,
     "armor_bash":8,
-    "armor_cut":8,
+    "armor_cut":4,
+    "armor_stab":10,
     "vision_day":30,
-    "vision_night":3, 
+    "vision_night":3,
     "hp":100,
     "death_function":"BLOBSPLIT",
     "special_attacks":[["STRETCH_BITE", 10], ["STRETCH_ATTACK", 5]],
     "description":"Black hollow eyes survey the surroundings as the zombie stretches and bends in ways that whoever the original body belonged to never could.  The only thing that seems solid, on this flexible black-veined body, is the rows of sharp black teeth.  You get the feeling that the only human thing remaining is the skin, worn as one would wear clothes.",
-    "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE"]   
-    },{
-    "type" : "MONSTER",
-    "id" : "mon_zombie_child",
-    "name": "zombie child",
-    "name_plural": "zombie children",
-    "species":"ZOMBIE",
-    "default_faction":"zombie",
-    "symbol":"z",
-    "color":"ltgreen",
-    "size":"SMALL",
-    "material":"flesh",
-    "diff":2,
-    "aggression":60,
-    "morale":100,
-    "speed":65,
-    "melee_skill":2,
-    "melee_dice":2,
-    "melee_dice_sides":4,
-    "melee_cut":2,
-    "dodge":2,
-    "armor_bash":0,
-    "armor_cut":0,
-    "vision_day":30,
-    "vision_night":3,
-    "death_drops": {
-        "subtype": "collection",
-        "//": "cloth as any other zombie (always), additional items from child_items (sometimes)",
-        "groups": [
-            [ "default_zombie_clothes", 100 ],
-            [ "child_items", 65 ]
-        ]
-    },
-    "hp":40,
-    "death_function":["NORMAL"],
-    "description":"It was only a child, and little is different about it now aside from the hungry look in its eyes.  You'd be hard pressed to not feel like you were killing an actual child by putting it down.",
-    "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "BLEED", "POISON", "GUILT", "NO_BREATHE", "REVIVES", "BONES"],
-    "categories":["CLASSIC"]
+    "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE"]
     },{
         "type" : "MONSTER",
         "id" : "mon_jabberwock",
@@ -3509,7 +3916,6 @@
         "symbol":"O",
         "color":"black_green",
         "size":"HUGE",
-        "material":"null",
         "diff":40,
         "aggression":50,
         "morale":100,
@@ -3536,7 +3942,6 @@
         "symbol":"O",
         "color":"ltgray",
         "size":"LARGE",
-        "material":"null",
         "diff":10,
         "aggression":100,
         "morale":100,
@@ -3548,7 +3953,9 @@
         "dodge":0,
         "armor_bash":14,
         "armor_cut":4,
-            "hp":160,
+        "armor_stab":20,
+        "armor_acid":20,
+        "hp":160,
         "death_function":"BLOBSPLIT",
         "special_attacks":[["FORMBLOB", 20]],
         "description":"A large black blob of viscous goo, oozing across the ground like a glob of living oil.",
@@ -3563,7 +3970,6 @@
         "symbol":"O",
         "color":"dkgray",
         "size":"MEDIUM",
-        "material":"null",
         "diff":19,
         "aggression":100,
         "morale":100,
@@ -3575,7 +3981,9 @@
         "dodge":0,
         "armor_bash":12,
         "armor_cut":0,
-            "hp":80,
+        "armor_stab":14,
+        "armor_acid":15,
+        "hp":80,
         "death_function":"BLOBSPLIT",
         "special_attacks":[["FORMBLOB", 30]],
         "description":"A black blob of viscous goo, oozing across the ground like a glob of living oil.",
@@ -3590,7 +3998,6 @@
         "symbol":"o",
         "color":"dkgray",
         "size":"SMALL",
-        "material":"null",
         "diff":2,
         "aggression":100,
         "morale":100,
@@ -3602,7 +4009,9 @@
         "dodge":0,
         "armor_bash":6,
         "armor_cut":0,
-            "hp":40,
+        "armor_stab":10,
+        "armor_acid":10,
+        "hp":40,
         "death_function":"BLOBSPLIT",
         "description":"A small black blob of viscous goo, oozing across the ground like a glob of living oil.",
         "flags":["HEARS", "GOODHEARING", "NOHEAD", "POISON", "NO_BREATHE", "ACIDPROOF"],
@@ -3643,7 +4052,7 @@
     "hp":60,
     "death_function":"NORMAL",
     "description":"The C.H.U.D.  or Cannibalistic Humanoid Underground Dweller.  A human being turned pale and mad from years of underground isolation.",
-    "flags":["SEES", "HEARS", "WARM", "BASHES", "GROUP_BASH", "HUMAN", "BONES"]
+    "flags":["SEES", "HEARS", "WARM", "BASHES", "GROUP_BASH", "HUMAN", "LEATHER", "BONES"]
     },{
     "type" : "MONSTER",
     "id" : "mon_one_eye",
@@ -3679,7 +4088,7 @@
     "hp":80,
     "death_function":"NORMAL",
     "description":"A relatively humanoid mutant with purple hair and a grapefruit-sized bloodshot eye.",
-    "flags":["SEES", "HEARS", "WARM", "BASHES", "GROUP_BASH", "HUMAN", "BONES"]
+    "flags":["SEES", "HEARS", "WARM", "BASHES", "GROUP_BASH", "HUMAN", "LEATHER", "BONES"]
     },{
     "type" : "MONSTER",
     "id" : "mon_crawler",
@@ -3705,7 +4114,7 @@
     "hp":180,
     "death_function":"NORMAL",
     "description":"A conglomeration of human parts fused together in a horrible mishmash of function, slowly dragging its eldritch body across the ground.",
-    "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "POISON", "HUMAN", "BONES"],
+    "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "POISON", "HUMAN", "LEATHER", "BONES"],
     "fear_triggers":["HURT", "FIRE"]
     },{
     "type" : "MONSTER",
@@ -3788,31 +4197,6 @@
     "description":"A towering swarm of mutated rats, their tails knotted together in a filthy mass.  A fetid stench flows from its filthy presence."
     },{
     "type" : "MONSTER",
-    "id" : "mon_mosquito",
-    "name": "mosquito",
-    "species":"INSECT",
-    "default_faction":"vermin",
-    "symbol":".",
-    "color":"brown",
-    "size":"TINY",
-    "material":"iflesh",
-    "diff":1,
-    "aggression":0,
-    "morale":0,
-    "speed":120,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":6,
-    "armor_bash":0,
-    "armor_cut":0,
-    "hp":1,
-    "death_function":"NORMAL",
-    "description":"A blood-sucking fly with a needle-like proboscis.  Its bite leaves behind itchy welts and can easily spread disease.",
-    "flags":["SMELLS", "HEARS", "STUMBLES", "VERMIN", "SMALL_BITES", "FLIES"]
-    },{
-    "type" : "MONSTER",
     "id" : "mon_mosquito_giant",
     "name": "giant mosquito",
     "species":"INSECT",
@@ -3840,34 +4224,6 @@
     "flags":["SEES", "SMELLS", "HEARS", "STUMBLES", "VENOM", "FLIES", "HIT_AND_RUN", "CHITIN"]
     },{
     "type" : "MONSTER",
-    "id" : "mon_dragonfly",
-    "name": "dragonfly",
-    "name_plural": "dragonflies",
-    "species":"INSECT",
-    "default_faction":"vermin",
-    "symbol":".",
-    "color":"ltgreen",
-    "size":"SMALL",
-    "material":"iflesh",
-    "diff":1,
-    "aggression":-90,
-    "morale":0,
-    "speed":180,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":6,
-    "armor_bash":0,
-    "armor_cut":6,
-    "hp":1,
-    "death_function":"NORMAL",
-    "description":"A thin-bodied insectoid predator with a large wingspan and big compound eyes.",
-    "flags":["SEES", "SMELLS", "FLIES", "VERMIN", "HUNTS_VERMIN"],
-    "anger_triggers":["PLAYER_WEAK"],
-    "fear_triggers":["PLAYER_CLOSE"]
-    },{
-    "type" : "MONSTER",
     "id" : "mon_dragonfly_giant",
     "name": "giant dragonfly",
     "name_plural": "giant dragonflies",
@@ -3893,34 +4249,9 @@
     "hp":70,
     "death_function":"NORMAL",
     "description":"A ferocious mutant dragonfly as big as a cat, darting through the air with a cluster of fangs for a mouth.",
-    "flags":["SEES", "SMELLS", "FLIES", "HIT_AND_RUN", "ATTACKMON", "CHITIN"],
+    "flags":["SEES", "SMELLS", "FLIES", "HIT_AND_RUN", "CHITIN"],
     "anger_triggers":["PLAYER_WEAK"],
     "fear_triggers":["PLAYER_CLOSE"]
-    },{
-    "type" : "MONSTER",
-    "id" : "mon_centipede",
-    "name": "centipede",
-    "species":"INSECT",
-    "default_faction":"vermin",
-    "symbol":".",
-    "color":"brown",
-    "size":"MEDIUM",
-    "material":"iflesh",
-    "diff":1,
-    "aggression":0,
-    "morale":0,
-    "speed":90,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":1,
-    "armor_bash":0,
-    "armor_cut":0,
-    "hp":1,
-    "death_function":"NORMAL",
-    "description":"A predatory segmented arthropod with dozens of legs and a venomous bite.",
-    "flags":["SMELLS", "HEARS", "VERMIN", "SMALL_BITES"]
     },{
     "type" : "MONSTER",
     "id" : "mon_centipede_giant",
@@ -3947,34 +4278,7 @@
     "hp":70,
     "death_function":"NORMAL",
     "description":"A meter-long centipede with a menacing pair of pincers, moving swiftly on dozens of spindly legs.",
-    "flags":["SEES", "SMELLS", "HEARS", "VENOM", "ATTACKMON", "CHITIN", "FAT"]
-    },{
-    "type" : "MONSTER",
-    "id" : "mon_frog",
-    "name": "bull frog",
-    "species":"AMPHIBIAN",
-    "default_faction":"vermin",
-    "symbol":".",
-    "color":"green",
-    "size":"TINY",
-    "material":"flesh",
-    "diff":1,
-    "aggression":0,
-    "morale":0,
-    "speed":80,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":6,
-    "armor_bash":0,
-    "armor_cut":0,
-    "hp":3,
-    "death_function":"NORMAL",
-    "special_attacks":[["LEAP", 5]],
-    "description":"The American bullfrog, in its natural habitat.  It feeds on insects, mice, lizards and any other living thing it can stuff down its gullet.",
-    "flags":["SEES", "SMELLS", "HEARS", "SWIMS", "HUNTS_VERMIN"],
-    "fear_triggers":["PLAYER_CLOSE"]
+    "flags":["SEES", "SMELLS", "HEARS", "VENOM", "CHITIN", "FAT"]
     },{
     "type" : "MONSTER",
     "id" : "mon_frog_giant",
@@ -3999,36 +4303,18 @@
     "vision_day":40,
     "hp":70,
     "death_function":"NORMAL",
-    "special_attacks":[["LEAP", 5]],
+    "special_attacks" : [
+        {
+            "type" : "leap",
+            "cooldown" : 10,
+            "max_range" : 10,
+            "min_consider_range" : 2,
+            "move_cost" : 0
+        }
+    ],
     "description":"A mutated bullfrog taller than you are.  It stares with amber eyes as it considers the easiest way to swallow you whole.",
-    "flags":["SEES", "SMELLS", "HEARS", "SWIMS", "LEATHER", "ATTACKMON", "BONES", "FAT"],
+    "flags":["SEES", "SMELLS", "HEARS", "SWIMS", "LEATHER", "BONES", "FAT"],
     "anger_triggers":["STALK", "PLAYER_WEAK", "PLAYER_CLOSE"]
-    },{
-    "type" : "MONSTER",
-    "id" : "mon_slug",
-    "name": "slug",
-    "species":"MOLLUSK",
-    "default_faction":"vermin",
-    "symbol":".",
-    "color":"brown",
-    "size":"HUGE",
-    "material":"flesh",
-    "diff":1,
-    "aggression":0,
-    "morale":0,
-    "speed":90,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":6,
-    "armor_bash":0,
-    "armor_cut":0,
-    "hp":1,
-    "death_function":"NORMAL",
-    "description":"The leopard slug, an omnivorous gastropod.  It consumes decaying matter as well as planted crops, and will attack and eat other slugs that cross its path.",
-    "flags":["SEES", "SMELLS", "VERMIN", "ACIDPROOF", "ARTHROPOD_BLOOD"],
-    "fear_triggers":["PLAYER_CLOSE"]
     },{
     "type" : "MONSTER",
     "id" : "mon_slug_giant",
@@ -4112,31 +4398,6 @@
     "anger_triggers":["FRIEND_ATTACKED", "PLAYER_WEAK"]
     },{
     "type" : "MONSTER",
-    "id" : "mon_spider_wolf",
-    "name": "wolf spider",
-    "species":"SPIDER",
-    "default_faction":"vermin",
-    "symbol":".",
-    "color":"brown",
-    "size":"TINY",
-    "material":"iflesh",
-    "diff":1,
-    "aggression":0,
-    "morale":0,
-    "speed":120,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":2,
-    "armor_bash":0,
-    "armor_cut":0,
-    "hp":1,
-    "death_function":"NORMAL",
-    "description":"A fairly large spider which tracks and catches prey through agility and stealth.  Its bite can be irritating even to large animals.",
-    "flags":["SMELLS", "HEARS", "VERMIN", "SMALL_BITES", "HUNTS_VERMIN", "CHITIN", "CLIMBS"]
-    },{
-    "type" : "MONSTER",
     "id" : "mon_spider_wolf_giant",
     "name": "giant wolf spider",
     "species":"SPIDER",
@@ -4161,7 +4422,7 @@
     "hp":40,
     "death_function":"NORMAL",
     "description":"A wolf spider mutated to about thirty times its normal size, it moves quickly and aggressively to catch and consume prey.",
-    "flags":["SEES", "SMELLS", "HEARS", "VENOM", "ATTACKMON", "CHITIN", "FAT", "CLIMBS"],
+    "flags":["SEES", "SMELLS", "HEARS", "VENOM", "CHITIN", "FAT", "CLIMBS"],
     "anger_triggers":["STALK", "PLAYER_WEAK", "HURT", "PLAYER_CLOSE"]
     },{
     "type" : "MONSTER",
@@ -4219,31 +4480,6 @@
     "flags":["SEES", "SMELLS", "HEARS", "WEBWALK", "STUMBLES",  "CHITIN", "CLIMBS"]
     },{
     "type" : "MONSTER",
-    "id" : "mon_spider_jumping",
-    "name": "jumping spider",
-    "species":"SPIDER",
-    "default_faction":"vermin",
-    "symbol":".",
-    "color":"dkgray",
-    "size":"TINY",
-    "material":"iflesh",
-    "diff":1,
-    "aggression":-99,
-    "morale":0,
-    "speed":20,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":2,
-    "armor_bash":0,
-    "armor_cut":0,
-    "hp":1,
-    "death_function":"NORMAL",
-    "description":"A little spider with elongated forelegs.  It does not build extensive webs, but leaps very quickly, appearing to move instantaneously from one spot to another.",
-    "flags":["SMELLS", "HEARS", "VERMIN", "HUNTS_VERMIN", "SMALL_BITER", "CLIMBS"]
-    },{
-    "type" : "MONSTER",
     "id" : "mon_spider_jumping_giant",
     "name": "giant jumping spider",
     "species":"SPIDER",
@@ -4267,35 +4503,16 @@
     "vision_night":5,
     "hp":30,
     "death_function":"NORMAL",
-    "special_attacks":[["LEAP", 2]],
+    "special_attacks":[
+        {
+            "type" : "leap",
+            "cooldown" : 2,
+            "max_range" : 5
+        }
+    ],
     "description":"A giant spider with big forelegs and two pairs of inquisitive-looking eyes.  It can leap quite quickly, even into the treetops.",
     "flags":["SEES", "SMELLS", "HEARS", "VENOM", "HIT_AND_RUN", "CHITIN", "CLIMBS"],
     "anger_triggers":["PLAYER_CLOSE"]
-    },{
-    "type" : "MONSTER",
-    "id" : "mon_spider_trapdoor",
-    "name": "trapdoor spider",
-    "species":"SPIDER",
-    "default_faction":"vermin",
-    "symbol":".",
-    "color":"dkgray",
-    "size":"TINY",
-    "material":"iflesh",
-    "diff":1,
-    "aggression":0,
-    "morale":0,
-    "speed":20,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":2,
-    "armor_bash":0,
-    "armor_cut":0,
-    "hp":1,
-    "death_function":"NORMAL",
-    "description":"A midsized spider with a bulbous thorax.  It creates a subterranean nest and lies in wait for prey to draw close enough for capture.",
-    "flags":["SMELLS", "HEARS", "VERMIN", "WEBWALK", "CLIMBS"]
     },{
     "type" : "MONSTER",
     "id" : "mon_spider_trapdoor_giant",
@@ -4323,31 +4540,6 @@
     "death_function":"NORMAL",
     "description":"A gigantic spider with a bulbous thorax.  It digs a deep underground burrow that serves as a pit to trap unwary prey.",
     "flags":["SEES", "SMELLS", "HEARS", "VENOM", "GRABS", "CAN_DIG", "WEBWALK", "CHITIN", "FAT", "CLIMBS"]
-    },{
-    "type" : "MONSTER",
-    "id" : "mon_spider_widow",
-    "name": "black widow spider",
-    "species":"SPIDER",
-    "default_faction":"vermin",
-    "symbol":".",
-    "color":"dkgray",
-    "size":"SMALL",
-    "material":"iflesh",
-    "diff":1,
-    "aggression":0,
-    "morale":0,
-    "speed":30,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":2,
-    "armor_bash":0,
-    "armor_cut":0,
-    "hp":1,
-    "death_function":"NORMAL",
-    "description":"An infamous spider with a characteristic red hourglass marking on its black carapace, known for its highly toxic bite.",
-    "flags":["SMELLS", "HEARS", "VERMIN", "HUNTS_VERMIN", "SMALL_BITES", "BADVENOM", "CLIMBS"]
     },{
     "type" : "MONSTER",
     "id" : "mon_spider_widow_giant",
@@ -4404,6 +4596,65 @@
     "description":"The horrid spawn of a giant black widow spider.  Even as a newborn, this foul creature knows only how to kill.",
     "flags":["SEES", "SMELLS", "HEARS", "VENOM", "WEBWALK", "CHITIN", "CLIMBS"],
     "anger_triggers":["PLAYER_WEAK", "PLAYER_CLOSE"]
+    },{
+    "type" : "MONSTER",
+    "id" : "mon_spider_cellar_giant",
+    "name": "giant cellar spider",
+    "species":"SPIDER",
+    "default_faction":"spider_cellar",
+    "symbol":"s",
+    "color":"brown",
+    "size":"SMALL",
+    "material":"iflesh",
+    "diff":20,
+    "aggression":-10,
+    "morale":100,
+    "speed":150,
+    "melee_skill":6,
+    "melee_dice":1,
+    "melee_dice_sides":8,
+    "melee_cut":4,
+    "dodge":7,
+    "armor_bash":1,
+    "armor_cut":2,
+    "armor_acid":3,
+    "vision_day":5,
+    "vision_night":5,
+    "hp":45,
+    "death_function":"NORMAL",
+    "description":"A twitchy mutant brown spider, with a relatively small body and spindly long legs.  Its smaller brethren are known for being agile, and for preying upon other spiders.",
+    "//": "No, they are not in fact the most venomous spider in the world.",
+    "flags":["SEES", "SMELLS", "HEARS", "VENOM", "WEBWALK", "CHITIN", "CLIMBS", "HARDTOSHOOT", "PUSH_MON"],
+    "anger_triggers":["STALK", "PLAYER_WEAK", "PLAYER_CLOSE"]
+    },{
+    "type" : "MONSTER",
+    "id" : "mon_spider_cellar_giant_s",
+    "name": "immature giant cellar spider",
+    "species":"SPIDER",
+    "default_faction":"spider_cellar",
+    "symbol":"c",
+    "color":"brown",
+    "size":"TINY",
+    "material":"iflesh",
+    "diff":10,
+    "aggression":-10,
+    "morale":100,
+    "speed":150,
+    "melee_skill":5,
+    "melee_dice":1,
+    "melee_dice_sides":3,
+    "melee_cut":2,
+    "dodge":6,
+    "armor_bash":1,
+    "armor_cut":2,
+    "armor_acid":3,
+    "vision_day":5,
+    "vision_night":5,
+    "hp":23,
+    "death_function":"NORMAL",
+    "description":"A newly-hatched giant cellar spider.  Too small to possess much venom, but still quick and agile like an adult.",
+    "flags":["SEES", "SMELLS", "HEARS", "WEBWALK", "CHITIN", "CLIMBS", "HARDTOSHOOT"],
+    "anger_triggers":["STALK", "PLAYER_WEAK", "PLAYER_CLOSE"]
     },{
     "type" : "MONSTER",
     "id" : "mon_dark_wyrm",
@@ -4586,7 +4837,7 @@
     "hp":70,
     "death_function":"NORMAL",
     "description":"A human body, but with its limbs, neck, and hair impossibly twisted.  It clambers around swiftly, making awful screeching sounds.",
-    "flags":["SEES", "HEARS", "GOODHEARING", "POISON", "HUMAN", "CLIMBS"]
+    "flags":["SEES", "HEARS", "GOODHEARING", "POISON", "HUMAN", "LEATHER", "CLIMBS"]
     },{
     "type" : "MONSTER",
     "id" : "mon_vortex",
@@ -4647,7 +4898,6 @@
     "symbol":"s",
     "color":"pink",
     "size":"MEDIUM",
-    "material":"null",
     "diff":28,
     "aggression":100,
     "morale":100,
@@ -4727,7 +4977,6 @@
     "symbol":"O",
     "color":"ltgray",
     "size":"LARGE",
-    "material":"null",
     "diff":20,
     "aggression":0,
     "morale":100,
@@ -4888,7 +5137,6 @@
     "symbol":"A",
     "color":"dkgray",
     "size":"TINY",
-    "material":"null",
     "diff":14,
     "aggression":100,
     "morale":100,
@@ -4916,7 +5164,6 @@
     "symbol":"S",
     "color":"dkgray",
     "size":"HUGE",
-    "material":"null",
     "diff":50,
     "aggression":2,
     "morale":500,
@@ -4944,7 +5191,6 @@
     "symbol":"O",
     "color":"pink",
     "size":"MEDIUM",
-    "material":"null",
     "diff":2,
     "aggression":0,
     "morale":0,
@@ -4970,7 +5216,6 @@
     "symbol":"o",
     "color":"pink",
     "size":"MEDIUM",
-    "material":"null",
     "diff":2,
     "aggression":0,
     "morale":0,
@@ -5022,15 +5267,17 @@
     "symbol":"&",
     "color":"dkgray",
     "size":"HUGE",
-    "material":"protoplasmic",
     "diff":20,
     "aggression":100,
     "morale":100,
     "speed":90,
     "melee_skill":10,
-    "melee_dice":8,
-    "melee_dice_sides":7,
+    "melee_dice":7,
+    "melee_dice_sides":5,
     "melee_cut":6,
+    "melee_damage" : [
+        {"damage_type" : "acid", "amount" : 20}
+    ],
     "dodge":0,
     "armor_bash":10,
     "armor_cut":30,
@@ -5038,7 +5285,7 @@
     "death_function":"MELT",
     "special_attacks":[["PARROT", 40]],
     "description":"A gargantuan protoplasmic blob, constantly reshaping, forming new pseudopods seemingly at will.  All over its body are eyes that form and disappear.  It looks at you with malice.",
-    "flags":["SEES", "SMELLS", "SWIMS", "PLASTIC", "SLUDGEPROOF", "ACID_BLOOD", "ACID_PROOF", "NOHEAD", "REGENERATES_50", "ABSORBS", "REGEN_MORALE", "NOGIB"]
+    "flags":["SEES", "SMELLS", "SWIMS", "PLASTIC", "SLUDGEPROOF", "ACID_BLOOD", "ACIDPROOF", "NOHEAD", "REGENERATES_50", "ABSORBS", "REGEN_MORALE", "NOGIB"]
     },{
     "type":"MONSTER",
     "id":"mon_albino_penguin",
@@ -5064,7 +5311,13 @@
     "vision_night":5,
     "hp":200,
     "death_function":"NORMAL",
-    "special_attacks":[["BITE", 15],["IMPALE",20]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 15
+        },
+        ["IMPALE",20]
+    ],
     "description":"Eight-feet-tall ghastly white penguins.  Placid unless otherwise provoked.",
     "flags":["HEARS", "KEENNOSE", "GOODHEARING", "SMELLS", "ANIMAL", "WARM", "BONES", "FEATHER", "FAT", "SWIMS", "SUNDEATH"],
     "anger_triggers":["HURT", "FRIEND_DIED", "FRIEND_ATTACKED"],
@@ -5094,7 +5347,7 @@
     "hp":80,
     "death_function":["NORMAL"],
     "description":"A crazed individual, the bloody scars on the side of its shaved head suggest some sort of partial lobotomy",
-    "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "BLEED", "HUMAN", "POISON", "REVIVES", "BONES"]
+    "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "BLEED", "HUMAN", "POISON", "REVIVES", "LEATHER", "BONES"]
     },{
     "type" : "MONSTER",
     "id" : "mon_homunculus",
@@ -5120,7 +5373,7 @@
     "hp":120,
     "death_function":["NORMAL"],
     "description":"A pale hairless man with an impressive athletic physique.  Its lidless eyes are totally black, and seeping with blood.",
-    "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "BLEED", "HUMAN", "REVIVES", "CLIMBS"]
+    "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "BLEED", "HUMAN", "REVIVES", "CLIMBS", "LEATHER", "BONES"]
     },{
     "type" : "MONSTER",
     "id" : "mon_blood_sacrifice",
@@ -5145,7 +5398,13 @@
     "death_drops": "default_zombie_clothes",
     "hp":40,
     "death_function":["NORMAL"],
-    "special_attacks":[["FEAR_PARALYZE", 0], ["BITE", 5]],
+    "special_attacks":[
+        ["FEAR_PARALYZE", 0],
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        }
+    ],
     "description":"A defiled human body, once living.  Tortured to death long ago, it remains chained to the altar, the putrescent flays of its peeled skin quivering like so much flotsam upon a murky pond.",
     "flags":["SEES", "HEARS", "SMELLS", "WARM", "BLEED", "IMMOBILE", "GUILT", "POISON", "REVIVES", "BONES"]
     },{
@@ -5172,7 +5431,13 @@
     "death_drops": "default_zombie_clothes",
     "hp":200,
     "death_function":["NORMAL"],
-    "special_attacks":[["FEAR_PARALYZE", 0], ["BITE", 5]],
+    "special_attacks":[
+        ["FEAR_PARALYZE", 0],
+        {
+            "type" : "bite",
+            "cooldown" : 5
+        }
+    ],
     "description":"A tall and slender man lacking skin and any normalcy of countenance.  Wings of muscle curl forth from its back and a third eye dominates the forehead.",
     "flags":["SEES", "HEARS", "SMELLS", "WARM", "BLEED", "HARDTOSHOOT", "ATTACKMON", "HUMAN", "POISON", "REVIVES", "BONES"]
     },{
@@ -5240,7 +5505,7 @@
     "hp":10,
     "death_function":"BROKEN",
     "description":"An automated anti-personnel drone, a fist-sized robot surrounded by whirring blades.",
-    "flags":["SEES", "FLIES", "NOHEAD", "ELECTRONIC", "HIT_AND_RUN", "NO_BREATHE"]
+    "flags":["SEES", "FLIES", "NOHEAD", "ELECTRONIC", "HIT_AND_RUN", "NO_BREATHE", "INTERIOR_AMMO"]
     },{
     "type" : "MONSTER",
     "id" : "mon_grenade_hack",
@@ -5495,41 +5760,7 @@
     "death_function":"BROKEN",
     "special_attacks":[["TAZER", 5]],
     "description":"A insectoid robot the size of a small dog, designed for home security.  Armed with two close-range tazers, it can skate across the ground with great speed.",
-    "flags":["SEES", "HEARS", "GOODHEARING", "ATTACKMON", "ELECTRONIC", "NO_BREATHE"]
-    },{
-    "type" : "MONSTER",
-    "id" : "mon_secubot",
-    "name": "security bot",
-    "species":"ROBOT",
-    "default_faction":"defense_bot",
-    "symbol":"R",
-    "color":"dkgray",
-    "size":"SMALL",
-    "material":"steel",
-    "diff":19,
-    "aggression":100,
-    "morale":100,
-    "speed":70,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":0,
-    "armor_bash":14,
-    "armor_cut":14,
-    "vision_day":50,
-    "death_drops": {
-        "groups": [
-            [ "robots", 4 ],
-            [ "secubot", 1]
-        ]
-    },
-    "hp":80,
-    "death_function":"EXPLODE",
-    "special_attacks":[["SMG", 2]],
-    "starting_ammo" : {"9mm":100},
-    "description":"The Northrop Watchman X-1 is a production series of heavily armored combat robots.  Initially designed for military patrol and escort service, it rolls on a set of hydraulic treads and is armed with a 3\"/50 caliber gun.",
-    "flags":["SEES", "HEARS", "BASHES", "ATTACKMON", "ELECTRONIC", "NO_BREATHE"]
+    "flags":["SEES", "HEARS", "GOODHEARING", "ELECTRONIC", "NO_BREATHE"]
     },{
     "type" : "MONSTER",
     "id" : "mon_hazmatbot",
@@ -5719,145 +5950,7 @@
     "special_attacks":[["MULTI_ROBOT", 3]],
     "starting_ammo" : {"556":1000, "40mm_frag":100, "120mm_HEAT":40},
     "description":"The Northrup Emancipator is the first and only automated tank ever produced, made shortly after the split-up of Northrup Grumman.  Clad in depleted uranium plating, and armed with advanced munitions and a 120-mm gun, it is capable of delivering extraordinary firepower.",
-    "flags":["SEES", "HEARS", "GOODHEARING", "NOHEAD", "BASHES", "DESTROYS", "ATTACKMON", "NO_BREATHE", "ELECTRONIC"]
-    },{
-    "type" : "MONSTER",
-    "id" : "mon_turret",
-    "name": "turret",
-    "species":"ROBOT",
-    "default_faction":"defense_bot",
-    "symbol":"2",
-    "color":"ltgray",
-    "size":"SMALL",
-    "material":"steel",
-    "diff":14,
-    "aggression":100,
-    "morale":100,
-    "speed":100,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":0,
-    "armor_bash":14,
-    "armor_cut":16,
-    "revert_to_itype": "bot_turret",
-    "death_drops": {
-        "groups": [
-            [ "robots", 10 ],
-            [ "turret", 1 ]
-        ]
-    },
-    "luminance":200,
-    "hp":30,
-    "death_function":"EXPLODE",
-    "special_attacks":[["SMG", 1]],
-    "starting_ammo" : {"9mm":100},
-    "description":"The General Atomics TX-1 Guardian, a small, pill-shaped automated gun turret using state of the art ATR systems to dynamically reorient itself to new friends and enemies alike.  The two SMG barrels can swivel a full 360 degrees.",
-    "flags":["SEES", "NOHEAD", "ELECTRONIC", "IMMOBILE", "NO_BREATHE"]
-    },{
-        "type" : "MONSTER",
-    "id" : "mon_laserturret",
-    "name": "laser turret",
-    "species":"ROBOT",
-    "default_faction":"military",
-    "symbol":"2",
-    "color":"white",
-    "size":"SMALL",
-    "material":"steel",
-    "diff":14,
-    "aggression":100,
-    "morale":100,
-    "speed":100,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":0,
-    "armor_bash":14,
-    "armor_cut":16,
-    "revert_to_itype": "bot_laserturret",
-    "death_drops": {
-        "groups": [
-            [ "robots", 10 ],
-            [ "laserturret", 1 ]
-        ]
-    },
-    "luminance":200,
-    "hp":30,
-    "death_function":"EXPLODE",
-    "special_attacks":[["LASER", 1]],
-    "description":"The TX-5LR Cerberus is an upgrade to its predecessors.  It features a state of the art revolving laser cannon system with three barrels that charge from solar cells embedded in its hull.",
-    "flags":["SEES", "NOHEAD", "ELECTRONIC", "IMMOBILE", "NO_BREATHE"]
-    },{
-    "type" : "MONSTER",
-    "id" : "mon_turret_rifle",
-    "name": "milspec turret",
-    "species":"ROBOT",
-    "default_faction":"military",
-    "symbol":"2",
-    "color":"green",
-    "size":"SMALL",
-    "material":"steel",
-    "diff":20,
-    "aggression":100,
-    "morale":100,
-    "speed":100,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":0,
-    "armor_bash":14,
-    "armor_cut":16,
-    "revert_to_itype": "bot_rifleturret",
-    "death_drops": {
-        "groups": [
-            [ "robots", 9 ],
-            [ "turret_rifle", 2 ]
-        ]
-    },
-    "luminance":210,
-    "hp":40,
-    "death_function":"EXPLODE",
-    "special_attacks":[["RIFLE_TUR", 1]],
-    "starting_ammo" : {"556":100},
-    "description":"Leadworks LLC's T-4A1 Sentry.  It features improved firmware over General Atomics' TX-1 9mm model and an automated M4 carbine.",
-    "flags":["SEES", "NOHEAD", "ELECTRONIC", "IMMOBILE", "NO_BREATHE"]
-    },{
-    "type" : "MONSTER",
-    "id" : "mon_turret_bmg",
-    "name": "antimateriel turret",
-    "species":"ROBOT",
-    "default_faction":"military",
-    "symbol":"2",
-    "color":"green",
-    "size":"MEDIUM",
-    "material":"steel",
-    "diff":30,
-    "aggression":100,
-    "morale":100,
-    "speed":100,
-    "melee_skill":0,
-    "melee_dice":0,
-    "melee_dice_sides":0,
-    "melee_cut":0,
-    "dodge":0,
-    "armor_bash":14,
-    "armor_cut":16,
-    "death_drops": {
-        "groups": [
-            [ "robots", 9 ],
-            [ "turret_bmg", 2 ]
-        ]
-    },
-    "luminance":210,
-    "hp":40,
-    "death_function":"EXPLODE",
-    "special_attacks":[["BMG_TUR", 1]],
-    "starting_ammo" : {"50bmg":100},
-    "description":"Leadworks LLC's T-107A1 Interdictor, an automated .50BMG antimateriel rifle.  Credited with forestalling countless car-bombing attempts, it has always been kept under extremely tight control, so as to itself maintain extremely tight control of its area.  And then the Cataclysm struck.",
-    "flags":["SEES", "NOHEAD", "ELECTRONIC", "IMMOBILE", "NO_BREATHE"]
+    "flags":["SEES", "HEARS", "GOODHEARING", "NOHEAD", "BASHES", "DESTROYS", "NO_BREATHE", "ELECTRONIC"]
     },{
     "type" : "MONSTER",
     "id" : "mon_turret_searchlight",
@@ -5977,7 +6070,6 @@
     "symbol":"O",
     "color":"ltgreen",
     "size":"MEDIUM",
-    "material":"null",
     "diff":19,
     "aggression":75,
     "morale":100,
@@ -6118,6 +6210,46 @@
     "categories":["WILDLIFE"]
     },{
     "type" : "MONSTER",
+    "id" : "mon_rattlesnake_giant",
+    "name": "giant rattlesnake",
+    "species":"REPTILE",
+    "default_faction":"small_animal",
+    "symbol":"s",
+    "color":"brown",
+    "size":"MEDIUM",
+    "material":"flesh",
+    "diff":8,
+    "aggression":-10,
+    "morale":60,
+    "speed":100,
+    "melee_skill":6,
+    "melee_dice":2,
+    "melee_dice_sides":8,
+    "melee_cut":8,
+    "dodge":1,
+    "armor_bash":2,
+    "armor_cut":4,
+    "vision_day":30,
+    "vision_night":5,
+    "hp":48,
+    "death_function":"NORMAL",
+    "special_attacks":[
+        ["RATTLE", 6],
+        {
+            "type" : "bite",
+            "cooldown" : 5,
+            "damage_max_instance" : [
+                {"damage_type" : "stab", "amount" : 10, "armor_multiplier" : 0.7}
+            ]
+        }
+    ],
+    "description":"A mutated timber rattlesnake, about three times as large as the norm.  While it isn't big enough to regard humans as potential prey, it is more aggresive and dangerous compared to a normal rattler.",
+    "flags":["SEES", "HEARS", "SMELLS", "BADVENOM", "HARDTOSHOOT", "SWIMS", "LEATHER", "BONES"],
+    "anger_triggers":["HURT", "PLAYER_CLOSE"],
+    "placate_triggers":["PLAYER_WEAK"],
+    "categories":["WILDLIFE"]
+    },{
+    "type" : "MONSTER",
     "id" : "mon_giant_crayfish",
     "name": "giant crayfish",
     "species":"MUTANT",
@@ -6140,7 +6272,7 @@
     "hp":50,
     "death_function":"NORMAL",
     "description":"A mutant, terrestrial variety of the signal crayfish, this massive crustacean resembles a humongous lobster.",
-    "flags":["SMELLS", "HEARS", "SEES", "CHITIN", "SWIMS", "ATTACKMON", "GRABS", "FAT", "ARTHROPOD_BLOOD"],
+    "flags":["SMELLS", "HEARS", "SEES", "CHITIN", "SWIMS", "GRABS", "FAT", "ARTHROPOD_BLOOD"],
     "anger_triggers":["PLAYER_CLOSE", "HURT"],
     "fear_triggers":["FIRE"]
     },{
@@ -6176,8 +6308,8 @@
     "death_function":"NORMAL",
     "special_attacks":[["BRANDISH", 10]],
     "description":"Living in the woods, \nkilling for sport, \neating all the bodies, \nactual cannibal Shia LaBeouf.",
-    "flags":["SEES", "HEARS", "WARM", "BASHES", "POISON", "BLEED", "NO_BREATHE"],
-    "anger_triggers":["STALK", "PLAYER_WEAK", "HURT", "PLAYER_CLOSE", "BONES"],
+    "flags":["SEES", "HEARS", "WARM", "BASHES", "POISON", "BONES", "BLEED", "NO_BREATHE"],
+    "anger_triggers":["STALK", "PLAYER_WEAK", "HURT", "PLAYER_CLOSE"],
     "fear_triggers":["FIRE"]
     },{
     "type" : "MONSTER",
@@ -6205,7 +6337,7 @@
     "death_function":"NORMAL",
     "special_attacks":[["PARROT", 80]],
     "description":"A robot body with the head of a human.  All kinds of electronic wires and devices are implanted in its head.  Patches of skin look diseased or rotting.  This cyborg moves erratically and has a confused and deranged look in its eyes.",
-    "flags":["SEES", "HEARS", "BASHES", "ATTACKMON", "ELECTRONIC", "NO_BREATHE", "REVIVES", "WARM", "STUMBLES", "CBM_POWER"]
+    "flags":["SEES", "HEARS", "BASHES", "ATTACKMON", "ELECTRONIC", "NO_BREATHE", "REVIVES", "WARM", "STUMBLES", "CBM_POWER", "HUMAN", "BONES"]
     },{
     "type" : "MONSTER",
     "id" : "mon_zoose",
@@ -6290,7 +6422,13 @@
     "vision_night":10,
     "hp":65,
     "death_function":"NORMAL",
-    "special_attacks":[["LEAP", 10]],
+    "special_attacks":[
+        {
+            "type" : "leap",
+            "cooldown" : 10,
+            "max_range" : 5
+        }
+    ],
     "description":"An otherwise normal-looking cougar, except that its hind legs are swollen, and its eyes bulge with black goo.",
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "KEENNOSE", "GOODHEARING", "BASHES", "POISON", "NO_BREATHE", "REVIVES", "FUR", "BONES"],
     "anger_triggers":["PLAYER_CLOSE", "HURT"],
@@ -6335,7 +6473,7 @@
     "symbol":"Z",
     "color":"dkgray_red",
     "size":"MEDIUM",
-    "material":"steel",
+    "material":"flesh",
     "diff":25,
     "aggression":100,
     "morale":100,
@@ -6347,13 +6485,16 @@
     "dodge":0,
     "armor_bash":64,
     "armor_cut":64,
+    "armor_acid":20,
+    "armor_fire":20,
     "vision_day":30,
     "vision_night":3,
     "death_drops": "mon_zombie_armored_death_drops",
+    "burn_into" : "mon_zombie_scorched",
     "hp":120,
-    "death_function":["NORMAL"], 
+    "death_function":["NORMAL"],
     "description":"Despite being encased in a what was once a nigh-impenetrable suit of power armor, something still managed to kill this soldier.",
-    "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "POISON", "BLEED", "ACIDPROOF", "NO_BREATHE", "REVIVES", "BONES"],
+    "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "POISON", "BLEED", "NO_BREATHE", "REVIVES", "BONES"],
     "categories":["CLASSIC"]
     },{
     "type" : "MONSTER",
@@ -6380,9 +6521,14 @@
     "vision_day":50,
     "hp":55,
     "death_function":"NORMAL",
-    "special_attacks":[["BITE", 2]],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 2
+        }
+    ],
     "description":"A zombified omnivore descended from the wild boar.  Now it's got black goo all over it, instead of mud.",
-    "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "KEENNOSE", "BLEED", "BASHES", "POISON", "NO_BREATHE", "REVIVES", "BONES", "FAT"],
+    "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "KEENNOSE", "BLEED", "BASHES", "POISON", "NO_BREATHE", "REVIVES", "BONES", "LEATHER", "FAT"],
     "anger_triggers":["PLAYER_WEAK", "PLAYER_CLOSE"],
     "fear_triggers":["FIRE"]
     },
@@ -6530,7 +6676,13 @@
     "death_drops": "mon_zombie_technician_death_drops",
     "hp":85,
     "death_function":["NORMAL"],
-    "special_attacks":[["PULL_METAL_WEAPON", 25], ["BITE", 20]],
+    "special_attacks":[
+        ["PULL_METAL_WEAPON", 25],
+        {
+            "type" : "bite",
+            "cooldown" : 20
+        }
+    ],
     "description":"Still wearing its work clothes and hardhat, this zombie likely used to work on power lines or other electrical equipment.",
     "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE", "REVIVES", "CBM_TECH", "BONES"]
     },{
@@ -6553,7 +6705,7 @@
     "melee_cut":2,
     "dodge":0,
     "armor_bash":3,
-    "armor_cut":1,
+    "armor_cut":8,
     "vision_day":40,
     "vision_night":3,
     "death_drops": "default_zombie_death_drops",
@@ -6574,14 +6726,14 @@
     "color":"brown",
     "size":"SMALL",
     "material":"iflesh",
-    "diff":10,
+    "diff":7,
     "aggression":30,
     "morale":60,
     "speed":100,
     "melee_skill":5,
     "melee_dice":1,
     "melee_dice_sides":6,
-    "melee_cut":6,
+    "melee_cut":3,
     "dodge":1,
     "armor_bash":5,
     "armor_cut":10,
@@ -6589,34 +6741,34 @@
     "vision_night":5,
     "hp":40,
     "death_function":"NORMAL",
-    "description":"A mutant cockroach the size of a small dog.  It's abdomen is heavily swollen.  ",
+    "description":"A mutant cockroach the size of a small dog.",
     "flags":["SEES", "HEARS", "SMELLS", "CHITIN", "CLIMBS"]
     },{
     "type" : "MONSTER",
     "id" : "mon_pregnant_giant_cockroach",
-    "name": "giant cockroach",
+    "name": "pregnant giant cockroach",
     "species":"INSECT",
     "default_faction":"roach",
     "symbol":"a",
     "color":"brown",
     "size":"SMALL",
     "material":"iflesh",
-    "diff":10,
+    "diff":8,
     "aggression":30,
     "morale":60,
     "speed":100,
     "melee_skill":5,
     "melee_dice":1,
     "melee_dice_sides":6,
-    "melee_cut":6,
+    "melee_cut":3,
     "dodge":1,
     "armor_bash":5,
     "armor_cut":10,
     "vision_day":5,
     "vision_night":5,
     "hp":40,
-    "death_function":"NORMAL",
-    "description":"A mutant cockroach the size of a small dog.  It's abdomen is heavily swollen.  ",
+    "death_function":["NORMAL","PREG_ROACH"],
+    "description":"A mutant cockroach the size of a small dog.  It's abdomen is heavily swollen.",
     "flags":["SEES", "HEARS", "SMELLS", "CHITIN", "CLIMBS"]
     },{
     "type" : "MONSTER",
@@ -6643,7 +6795,7 @@
     "vision_night":3,
     "hp":10,
     "death_function":"NORMAL",
-    "description":"A baby mutant cockroach about the size of a rat.  ",
+    "description":"A baby mutant cockroach about the size of a rat.",
     "flags":["SEES", "HEARS", "SMELLS", "CHITIN", "CLIMBS"]
     }
 ]

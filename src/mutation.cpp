@@ -9,19 +9,27 @@
 #include "overmapbuffer.h"
 #include "sounds.h"
 #include "options.h"
-#include "catacharset.h"
-#include "input.h"
 #include "mapdata.h"
 #include "debug.h"
 #include "field.h"
-
-#include <math.h>    //sqrt
-#include <algorithm> //std::min
-#include <sstream>
+#include "vitamin.h"
 
 bool Character::has_trait(const std::string &b) const
 {
     return my_mutations.count( b ) > 0;
+}
+
+bool Character::has_trait_flag( const std::string &b ) const
+{
+    // UGLY, SLOW, should be cached as my_mutation_flags or something
+    for( const auto &mut : my_mutations ) {
+        auto &mut_data = mutation_branch::get( mut.first );
+        if( mut_data.flags.count( b ) > 0 ) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 bool Character::has_base_trait(const std::string &b) const
@@ -47,6 +55,7 @@ void Character::toggle_trait(const std::string &flag)
         mutation_loss_effect(flag);
     }
     recalc_sight_limits();
+    reset_encumbrance();
 }
 
 void Character::set_mutation(const std::string &flag)
@@ -58,6 +67,7 @@ void Character::set_mutation(const std::string &flag)
         debugmsg("Trying to set %s mutation, but the character already has it.", flag.c_str());
     }
     recalc_sight_limits();
+    reset_encumbrance();
 }
 
 void Character::unset_mutation(const std::string &flag)
@@ -69,6 +79,7 @@ void Character::unset_mutation(const std::string &flag)
         my_mutations.erase( iter );
     }
     recalc_sight_limits();
+    reset_encumbrance();
 }
 
 int Character::get_mod(std::string mut, std::string arg) const
@@ -103,78 +114,30 @@ void Character::apply_mods(const std::string &mut, bool add_remove)
     }
 }
 
+bool mutation_branch::conflicts_with_item( const item &it ) const
+{
+    if( allow_soft_gear && it.is_soft() ) {
+        return false;
+    }
+
+    for( body_part bp : restricts_gear ) {
+        if( it.covers( bp ) ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void Character::mutation_effect(std::string mut)
 {
-    bool destroy = false;
-    std::vector<body_part> bps;
-
     if (mut == "TOUGH" || mut == "TOUGH2" || mut == "TOUGH3" || mut == "GLASSJAW" ||
         mut == "FLIMSY" || mut == "FLIMSY2" || mut == "FLIMSY3" ||
         mut == "MUT_TOUGH" || mut == "MUT_TOUGH2" || mut == "MUT_TOUGH3") {
         recalc_hp();
 
-    } else if (mut == "WEBBED" || mut == "PAWS" || mut == "PAWS_LARGE" || mut == "ARM_TENTACLES" ||
-               mut == "ARM_TENTACLES_4" || mut == "ARM_TENTACLES_8") {
-        // Push off gloves
-        bps.push_back(bp_hand_l);
-        bps.push_back(bp_hand_r);
-
-    } else if (mut == "TALONS") {
-        // Destroy gloves
-        destroy = true;
-        bps.push_back(bp_hand_l);
-        bps.push_back(bp_hand_r);
-
-    } else if (mut == "BEAK" || mut == "BEAK_PECK" || mut == "BEAK_HUM" || mut == "MANDIBLES" ||
-               mut == "SABER_TEETH") {
-        // Destroy mouthwear
-        destroy = true;
-        bps.push_back(bp_mouth);
-
-    } else if (mut == "MINOTAUR" || mut == "MUZZLE" || mut == "MUZZLE_BEAR" || mut == "MUZZLE_LONG" ||
-               mut == "PROBOSCIS" || mut == "MUZZLE_RAT") {
-        // Push off mouthwear
-        bps.push_back(bp_mouth);
-
-    } else if (mut == "HOOVES" || mut == "RAP_TALONS") {
-        // Destroy footwear
-        destroy = true;
-        bps.push_back(bp_foot_l);
-        bps.push_back(bp_foot_r);
-
-    } else if (mut == "SHELL") {
-        // Destroy torsowear
-        destroy = true;
-        bps.push_back(bp_torso);
-
-    } else if ( (mut == "INSECT_ARMS") || (mut == "ARACHNID_ARMS") || (mut == "WINGS_BUTTERFLY") ) {
-        // Push off torsowear
-        bps.push_back(bp_torso);
-
-    } else if (mut == "HORNS_CURLED" || mut == "CHITIN3") {
-        // Push off all helmets
-        bps.push_back(bp_head);
-
-    } else if (mut == "HORNS_POINTED" || mut == "ANTENNAE" || mut == "ANTLERS") {
-        // Push off non-cloth helmets
-        bps.push_back(bp_head);
-
-    } else if (mut == "HUGE") {
-        // And there goes your clothing; by now you shouldn't need it anymore
-        add_msg(m_bad, _("You rip out of your clothing!"));
-        destroy = true;
-        bps.push_back(bp_torso);
-        bps.push_back(bp_leg_l);
-        bps.push_back(bp_leg_r);
-        bps.push_back(bp_arm_l);
-        bps.push_back(bp_arm_r);
-        bps.push_back(bp_hand_l);
-        bps.push_back(bp_hand_r);
-        bps.push_back(bp_head);
-        bps.push_back(bp_foot_l);
-        bps.push_back(bp_foot_r);
-
     } else if (mut == "STR_ALPHA") {
+        ///\EFFECT_STR_MAX determines bonus from STR mutation
         if (str_max <= 6) {
             str_max = 8;
         } else if (str_max <= 7) {
@@ -186,6 +149,7 @@ void Character::mutation_effect(std::string mut)
         }
         recalc_hp();
     } else if (mut == "DEX_ALPHA") {
+        ///\EFFECT_DEX_MAX determines bonus from DEX mutation
         if (dex_max <= 6) {
             dex_max = 8;
         } else if (dex_max <= 7) {
@@ -196,6 +160,7 @@ void Character::mutation_effect(std::string mut)
             dex_max = 18;
         }
     } else if (mut == "INT_ALPHA") {
+        ///\EFFECT_INT_MAX determines bonus from INT mutation
         if (int_max <= 6) {
             int_max = 8;
         } else if (int_max <= 7) {
@@ -209,6 +174,7 @@ void Character::mutation_effect(std::string mut)
         int_max *= 2; // Now, can you keep it? :-)
 
     } else if (mut == "PER_ALPHA") {
+        ///\EFFECT_PER_MAX determines bonus from PER mutation
         if (per_max <= 6) {
             per_max = 8;
         } else if (per_max <= 7) {
@@ -222,34 +188,39 @@ void Character::mutation_effect(std::string mut)
         apply_mods(mut, true);
     }
 
-    const auto covers_any = [&bps]( const item& armor ) {
-        for( auto &bp : bps ) {
-            if( armor.covers( bp ) ) {
-                return true;
-            }
-        }
-        return false;
-    };
+    const auto &branch = mutation_branch::get( mut );
 
     remove_worn_items_with( [&]( item& armor ) {
         static const std::string mutation_safe = "OVERSIZE";
         if( armor.has_flag( mutation_safe ) ) {
             return false;
         }
-        if( !covers_any( armor ) ) {
+        if( !branch.conflicts_with_item( armor ) ) {
             return false;
         }
-        if( destroy ) {
-            add_msg_if_player( m_bad, _("Your %s is destroyed!"), armor.tname().c_str() );
+        if( branch.destroys_gear ) {
+            add_msg_player_or_npc( m_bad,
+                _("Your %s is destroyed!"),
+                _("<npcname>'s %s is destroyed!"),
+                armor.tname().c_str() );
             for( item& remain : armor.contents ) {
                 g->m.add_item_or_charges( pos(), remain );
             }
         } else {
-            add_msg_if_player( m_bad, _("Your %s is pushed off."), armor.tname().c_str() );
+            add_msg_player_or_npc( m_bad,
+                _("Your %s is pushed off!"),
+                _("<npcname>'s %s is pushed off!"),
+                armor.tname().c_str() );
             g->m.add_item_or_charges( pos(), armor );
         }
         return true;
     } );
+
+    if( branch.starts_active ) {
+        my_mutations[mut].powered = true;
+    }
+
+    on_mutation_gain( mut );
 }
 
 void Character::mutation_loss_effect(std::string mut)
@@ -260,6 +231,7 @@ void Character::mutation_loss_effect(std::string mut)
         recalc_hp();
 
     } else if (mut == "STR_ALPHA") {
+        ///\EFFECT_STR_MAX determines penalty from STR mutation loss
         if (str_max == 18) {
             str_max = 15;
         } else if (str_max == 15) {
@@ -271,6 +243,7 @@ void Character::mutation_loss_effect(std::string mut)
         }
         recalc_hp();
     } else if (mut == "DEX_ALPHA") {
+        ///\EFFECT_DEX_MAX determines penalty from DEX mutation loss
         if (dex_max == 18) {
             dex_max = 15;
         } else if (dex_max == 15) {
@@ -281,6 +254,7 @@ void Character::mutation_loss_effect(std::string mut)
             dex_max = 4;
         }
     } else if (mut == "INT_ALPHA") {
+        ///\EFFECT_INT_MAX determines penalty from INT mutation loss
         if (int_max == 18) {
             int_max = 15;
         } else if (int_max == 15) {
@@ -294,6 +268,7 @@ void Character::mutation_loss_effect(std::string mut)
         int_max /= 2; // In case you have a freak accident with the debug menu ;-)
 
     } else if (mut == "PER_ALPHA") {
+        ///\EFFECT_PER_MAX determines penalty from PER mutation loss
         if (per_max == 18) {
             per_max = 15;
         } else if (per_max == 15) {
@@ -306,6 +281,8 @@ void Character::mutation_loss_effect(std::string mut)
     } else {
         apply_mods(mut, false);
     }
+
+    on_mutation_loss( mut );
 }
 
 bool Character::has_active_mutation(const std::string & b) const
@@ -321,10 +298,10 @@ void player::activate_mutation( const std::string &mut )
     int cost = mdata.cost;
     // You can take yourself halfway to Near Death levels of hunger/thirst.
     // Fatigue can go to Exhausted.
-    if ((mdata.hunger && get_hunger() >= 700) || (mdata.thirst && thirst >= 260) ||
-      (mdata.fatigue && fatigue >= EXHAUSTED)) {
+    if ((mdata.hunger && get_hunger() >= 700) || (mdata.thirst && get_thirst() >= 260) ||
+      (mdata.fatigue && get_fatigue() >= EXHAUSTED)) {
       // Insufficient Foo to *maintain* operation is handled in player::suffer
-        add_msg(m_warning, _("You feel like using your %s would kill you!"), mdata.name.c_str());
+        add_msg_if_player(m_warning, _("You feel like using your %s would kill you!"), mdata.name.c_str());
         return;
     }
     if (tdata.powered && tdata.charge > 0) {
@@ -339,10 +316,10 @@ void player::activate_mutation( const std::string &mut )
             mod_hunger(cost);
         }
         if (mdata.thirst){
-            thirst += cost;
+            mod_thirst(cost);
         }
         if (mdata.fatigue){
-            fatigue += cost;
+            mod_fatigue(cost);
         }
         tdata.powered = true;
 
@@ -353,43 +330,44 @@ void player::activate_mutation( const std::string &mut )
 
     if( mut == "WEB_WEAVER" ) {
         g->m.add_field(pos(), fd_web, 1, 0);
-        add_msg(_("You start spinning web with your spinnerets!"));
+        add_msg_if_player(_("You start spinning web with your spinnerets!"));
     } else if (mut == "BURROW"){
-        if (g->u.is_underwater()) {
+        if( is_underwater() ) {
             add_msg_if_player(m_info, _("You can't do that while underwater."));
             tdata.powered = false;
             return;
         }
-        int dirx, diry;
-        if (!choose_adjacent(_("Burrow where?"), dirx, diry)) {
+        tripoint dirp;
+        if (!choose_adjacent(_("Burrow where?"), dirp)) {
             tdata.powered = false;
             return;
         }
 
-        if (dirx == g->u.posx() && diry == g->u.posy()) {
+        if( dirp == pos() ) {
             add_msg_if_player(_("You've got places to go and critters to beat."));
             add_msg_if_player(_("Let the lesser folks eat their hearts out."));
             tdata.powered = false;
             return;
         }
         int turns;
-        if (g->m.is_bashable(dirx, diry) && g->m.has_flag("SUPPORTS_ROOF", dirx, diry) &&
-            g->m.ter(dirx, diry) != t_tree) {
+        if (g->m.is_bashable(dirp) && g->m.has_flag("SUPPORTS_ROOF", dirp) &&
+            g->m.ter(dirp) != t_tree) {
             // Takes about 100 minutes (not quite two hours) base time.
             // Being better-adapted to the task means that skillful Survivors can do it almost twice as fast.
-            turns = (100000 - 5000 * g->u.skillLevel( skill_id( "carpentry" ) ));
-        } else if (g->m.move_cost(dirx, diry) == 2 && g->get_levz() == 0 &&
-                   g->m.ter(dirx, diry) != t_dirt && g->m.ter(dirx, diry) != t_grass) {
+            ///\EFFECT_CARPENTRY speeds up burrowing
+            turns = (100000 - 5000 * get_skill_level( skill_id( "carpentry" ) ));
+        } else if (g->m.move_cost(dirp) == 2 && g->get_levz() == 0 &&
+                   g->m.ter(dirp) != t_dirt && g->m.ter(dirp) != t_grass) {
             turns = 18000;
         } else {
             add_msg_if_player(m_info, _("You can't burrow there."));
             tdata.powered = false;
             return;
         }
-        g->u.assign_activity(ACT_BURROW, turns, -1, 0);
-        g->u.activity.placement = tripoint(dirx, diry,0);
+        assign_activity(ACT_BURROW, turns, -1, 0);
+        activity.placement = dirp;
         add_msg_if_player(_("You tear into the %s with your teeth and claws."),
-                          g->m.tername(dirx, diry).c_str());
+                          g->m.tername(dirp).c_str());
         tdata.powered = false;
         return; // handled when the activity finishes
     } else if (mut == "SLIMESPAWNER") {
@@ -404,11 +382,11 @@ void player::activate_mutation( const std::string &mut )
         }
         // Oops, no room to divide!
         if (valid.size() == 0) {
-            add_msg(m_bad, _("You focus, but are too hemmed in to birth a new slimespring!"));
+            add_msg_if_player(m_bad, _("You focus, but are too hemmed in to birth a new slimespring!"));
             tdata.powered = false;
             return;
         }
-        add_msg(m_good, _("You focus, and with a pleasant splitting feeling, birth a new slimespring!"));
+        add_msg_if_player(m_good, _("You focus, and with a pleasant splitting feeling, birth a new slimespring!"));
         int numslime = 1;
         for (int i = 0; i < numslime && !valid.empty(); i++) {
             const tripoint target = random_entry_removed( valid );
@@ -417,13 +395,15 @@ void player::activate_mutation( const std::string &mut )
                 slime->friendly = -1;
             }
         }
-        //~ Usual enthusiastic slimespring small voices! :D
         if (one_in(3)) {
-            add_msg(m_good, _("wow! you look just like me! we should look out for each other!"));
+            //~ Usual enthusiastic slimespring small voices! :D
+            add_msg_if_player(m_good, _("wow! you look just like me! we should look out for each other!"));
         } else if (one_in(2)) {
-            add_msg(m_good, _("come on, big me, let's go!"));
+            //~ Usual enthusiastic slimespring small voices! :D
+            add_msg_if_player(m_good, _("come on, big me, let's go!"));
         } else {
-            add_msg(m_good, _("we're a team, we've got this!"));
+            //~ Usual enthusiastic slimespring small voices! :D
+            add_msg_if_player(m_good, _("we're a team, we've got this!"));
         }
         tdata.powered = false;
         return;
@@ -440,17 +420,17 @@ void player::activate_mutation( const std::string &mut )
         tdata.powered = false;
         return;
     } else if (mut == "VINES3"){
-        item newit("vine_30", calendar::turn, false);
+        item newit( "vine_30", calendar::turn );
         if (!can_pickVolume(newit.volume())) { //Accounts for result_mult
-            add_msg(_("You detach a vine but don't have room to carry it, so you drop it."));
-            g->m.add_item_or_charges(posx(), posy(), newit);
+            add_msg_if_player(_("You detach a vine but don't have room to carry it, so you drop it."));
+            g->m.add_item_or_charges(pos(), newit);
         } else if (!can_pickWeight(newit.weight(), !OPTIONS["DANGEROUS_PICKUPS"])) {
-            add_msg(_("Your freshly-detached vine is too heavy to carry, so you drop it."));
-            g->m.add_item_or_charges(posx(), posy(), newit);
+            add_msg_if_player(_("Your freshly-detached vine is too heavy to carry, so you drop it."));
+            g->m.add_item_or_charges(pos(), newit);
         } else {
             inv.assign_empty_invlet(newit);
             newit = i_add(newit);
-            add_msg(m_info, "%c - %s", newit.invlet == 0 ? ' ' : newit.invlet, newit.tname().c_str());
+            add_msg_if_player(m_info, "%c - %s", newit.invlet == 0 ? ' ' : newit.invlet, newit.tname().c_str());
         }
         tdata.powered = false;
         return;
@@ -470,35 +450,7 @@ void player::deactivate_mutation( const std::string &mut )
     recalc_sight_limits();
 }
 
-void show_mutations_titlebar(WINDOW *window, player *p, std::string menu_mode)
-{
-    werase(window);
-
-    std::string caption = _("MUTATIONS -");
-    int cap_offset = utf8_width(caption) + 1;
-    mvwprintz(window, 0,  0, c_blue, "%s", caption.c_str());
-
-    std::stringstream pwr;
-    pwr << string_format(_("Power: %d/%d"), int(p->power_level), int(p->max_power_level));
-    int pwr_length = utf8_width(pwr.str()) + 1;
-
-    std::string desc;
-    int desc_length = getmaxx(window) - cap_offset - pwr_length;
-
-    if(menu_mode == "reassigning") {
-        desc = _("Reassigning.\nSelect a mutation to reassign or press SPACE to cancel.");
-    } else if(menu_mode == "activating") {
-        desc = _("<color_green>Activating</color>  <color_yellow>!</color> to examine, <color_yellow>=</color> to reassign.");
-    } else if(menu_mode == "examining") {
-        desc = _("<color_ltblue>Examining</color>  <color_yellow>!</color> to activate, <color_yellow>=</color> to reassign.");
-    }
-    fold_and_print(window, 0, cap_offset, desc_length, c_white, desc);
-    fold_and_print(window, 1, 0, desc_length, c_white, _("Might need to use ? to assign the keys."));
-
-    wrefresh(window);
-}
-
-std::string Character::trait_by_invlet( const char ch ) const
+std::string Character::trait_by_invlet( const long ch ) const
 {
     for( auto &mut : my_mutations ) {
         if( mut.second.key == ch ) {
@@ -506,278 +458,6 @@ std::string Character::trait_by_invlet( const char ch ) const
         }
     }
     return std::string();
-}
-
-void player::power_mutations()
-{
-    std::vector <std::string> passive;
-    std::vector <std::string> active;
-    for( auto &mut : my_mutations ) {
-        if (!mutation_branch::get( mut.first ).activated) {
-            passive.push_back(mut.first);
-        } else {
-            active.push_back(mut.first);
-        }
-        // New mutations are initialized with no key at all, so we have to do this here.
-        if( mut.second.key == ' ' ) {
-            for( const auto &letter : inv_chars ) {
-                if( trait_by_invlet( letter ).empty() ) {
-                    mut.second.key = letter;
-                    break;
-                }
-            }
-        }
-    }
-
-    // maximal number of rows in both columns
-    const int mutations_count = std::max(passive.size(), active.size());
-
-    int TITLE_HEIGHT = 2;
-    int DESCRIPTION_HEIGHT = 5;
-
-    // Main window
-    /** Total required height is:
-    * top frame line:                                         + 1
-    * height of title window:                                 + TITLE_HEIGHT
-    * line after the title:                                   + 1
-    * line with active/passive mutation captions:               + 1
-    * height of the biggest list of active/passive mutations:   + mutations_count
-    * line before mutation description:                         + 1
-    * height of description window:                           + DESCRIPTION_HEIGHT
-    * bottom frame line:                                      + 1
-    * TOTAL: TITLE_HEIGHT + mutations_count + DESCRIPTION_HEIGHT + 5
-    */
-    int HEIGHT = std::min(TERMY, std::max(FULL_SCREEN_HEIGHT,
-                                          TITLE_HEIGHT + mutations_count + DESCRIPTION_HEIGHT + 5));
-    int WIDTH = FULL_SCREEN_WIDTH + (TERMX - FULL_SCREEN_WIDTH) / 2;
-    int START_X = (TERMX - WIDTH) / 2;
-    int START_Y = (TERMY - HEIGHT) / 2;
-    WINDOW *wBio = newwin(HEIGHT, WIDTH, START_Y, START_X);
-
-    // Description window @ the bottom of the bio window
-    int DESCRIPTION_START_Y = START_Y + HEIGHT - DESCRIPTION_HEIGHT - 1;
-    int DESCRIPTION_LINE_Y = DESCRIPTION_START_Y - START_Y - 1;
-    WINDOW *w_description = newwin(DESCRIPTION_HEIGHT, WIDTH - 2,
-                                   DESCRIPTION_START_Y, START_X + 1);
-
-    // Title window
-    int TITLE_START_Y = START_Y + 1;
-    int HEADER_LINE_Y = TITLE_HEIGHT + 1; // + lines with text in titlebar, local
-    WINDOW *w_title = newwin(TITLE_HEIGHT, WIDTH - 2, TITLE_START_Y, START_X + 1);
-
-    int scroll_position = 0;
-    int second_column = 32 + (TERMX - FULL_SCREEN_WIDTH) /
-                        4; // X-coordinate of the list of active mutations
-
-    input_context ctxt("MUTATIONS");
-    ctxt.register_updown();
-    ctxt.register_action("ANY_INPUT");
-    ctxt.register_action("TOGGLE_EXAMINE");
-    ctxt.register_action("REASSIGN");
-    ctxt.register_action("HELP_KEYBINDINGS");
-
-    bool redraw = true;
-    std::string menu_mode = "activating";
-
-    while(true) {
-        // offset for display: mutation with index i is drawn at y=list_start_y+i
-        // drawing the mutation starts with mutation[scroll_position]
-        const int list_start_y = HEADER_LINE_Y + 2 - scroll_position;
-        int max_scroll_position = HEADER_LINE_Y + 2 + mutations_count -
-                                  ((menu_mode == "examining") ? DESCRIPTION_LINE_Y : (HEIGHT - 1));
-        if(redraw) {
-            redraw = false;
-
-            werase(wBio);
-            draw_border(wBio);
-            // Draw line under title
-            mvwhline(wBio, HEADER_LINE_Y, 1, LINE_OXOX, WIDTH - 2);
-            // Draw symbols to connect additional lines to border
-            mvwputch(wBio, HEADER_LINE_Y, 0, BORDER_COLOR, LINE_XXXO); // |-
-            mvwputch(wBio, HEADER_LINE_Y, WIDTH - 1, BORDER_COLOR, LINE_XOXX); // -|
-
-            // Captions
-            mvwprintz(wBio, HEADER_LINE_Y + 1, 2, c_ltblue, _("Passive:"));
-            mvwprintz(wBio, HEADER_LINE_Y + 1, second_column, c_ltblue, _("Active:"));
-
-            draw_exam_window(wBio, DESCRIPTION_LINE_Y, menu_mode == "examining");
-            nc_color type;
-            if (passive.empty()) {
-                mvwprintz(wBio, list_start_y, 2, c_ltgray, _("None"));
-            } else {
-                for (size_t i = scroll_position; i < passive.size(); i++) {
-                    const auto &md = mutation_branch::get( passive[i] );
-                    const auto &td = my_mutations[passive[i]];
-                    if (list_start_y + static_cast<int>(i) ==
-                        (menu_mode == "examining" ? DESCRIPTION_LINE_Y : HEIGHT - 1)) {
-                        break;
-                    }
-                    type = c_cyan;
-                    mvwprintz(wBio, list_start_y + i, 2, type, "%c %s", td.key, md.name.c_str());
-                }
-            }
-
-            if (active.empty()) {
-                mvwprintz(wBio, list_start_y, second_column, c_ltgray, _("None"));
-            } else {
-                for (size_t i = scroll_position; i < active.size(); i++) {
-                    const auto &md = mutation_branch::get( active[i] );
-                    const auto &td = my_mutations[active[i]];
-                    if (list_start_y + static_cast<int>(i) ==
-                        (menu_mode == "examining" ? DESCRIPTION_LINE_Y : HEIGHT - 1)) {
-                        break;
-                    }
-                    if (!td.powered) {
-                        type = c_red;
-                    }else if (td.powered) {
-                        type = c_ltgreen;
-                    } else {
-                        type = c_ltred;
-                    }
-                    // TODO: track resource(s) used and specify
-                    mvwputch( wBio, list_start_y + i, second_column, type, td.key );
-                    std::stringstream mut_desc;
-                    mut_desc << md.name;
-                    if ( md.cost > 0 && md.cooldown > 0 ) {
-                        mut_desc << string_format( _(" - %d RU / %d turns"),
-                                      md.cost, md.cooldown );
-                    } else if ( md.cost > 0 ) {
-                        mut_desc << string_format( _(" - %d RU"), md.cost );
-                    } else if ( md.cooldown > 0 ) {
-                        mut_desc << string_format( _(" - %d turns"), md.cooldown );
-                    }
-                    if ( td.powered ) {
-                        mut_desc << _(" - Active");
-                    }
-                    mvwprintz( wBio, list_start_y + i, second_column + 2, type,
-                               mut_desc.str().c_str() );
-                }
-            }
-
-            // Scrollbar
-            if(scroll_position > 0) {
-                mvwputch(wBio, HEADER_LINE_Y + 2, 0, c_ltgreen, '^');
-            }
-            if(scroll_position < max_scroll_position && max_scroll_position > 0) {
-                mvwputch(wBio, (menu_mode == "examining" ? DESCRIPTION_LINE_Y : HEIGHT - 1) - 1,
-                         0, c_ltgreen, 'v');
-            }
-        }
-        wrefresh(wBio);
-        show_mutations_titlebar(w_title, this, menu_mode);
-        const std::string action = ctxt.handle_input();
-        const long ch = ctxt.get_raw_input().get_first_input();
-        if (menu_mode == "reassigning") {
-            menu_mode = "activating";
-            const auto mut_id = trait_by_invlet( ch );
-            if( mut_id.empty() ) {
-                // Selected an non-existing mutation (or escape, or ...)
-                continue;
-            }
-            redraw = true;
-            const char newch = popup_getkey(_("%s; enter new letter."),
-                                            mutation_branch::get_name( mut_id ).c_str());
-            wrefresh(wBio);
-            if(newch == ch || newch == ' ' || newch == KEY_ESCAPE) {
-                continue;
-            }
-            const auto other_mut_id = trait_by_invlet( newch );
-            // if there is already a mutation with the new key, the key
-            // is considered valid.
-            if( other_mut_id.empty() && inv_chars.find(newch) == std::string::npos ) {
-                // TODO separate list of letters for mutations
-                popup(_("%c is not a valid inventory letter."), newch);
-                continue;
-            }
-            if( !other_mut_id.empty() ) {
-                std::swap(my_mutations[mut_id].key, my_mutations[other_mut_id].key);
-            } else {
-                my_mutations[mut_id].key = newch;
-            }
-            // TODO: show a message like when reassigning a key to an item?
-        } else if (action == "DOWN") {
-            if(scroll_position < max_scroll_position) {
-                scroll_position++;
-                redraw = true;
-            }
-        } else if (action == "UP") {
-            if(scroll_position > 0) {
-                scroll_position--;
-                redraw = true;
-            }
-        } else if (action == "REASSIGN") {
-            menu_mode = "reassigning";
-        } else if (action == "TOGGLE_EXAMINE") { // switches between activation and examination
-            menu_mode = menu_mode == "activating" ? "examining" : "activating";
-            werase(w_description);
-            draw_exam_window(wBio, DESCRIPTION_LINE_Y, false);
-            redraw = true;
-        }else if (action == "HELP_KEYBINDINGS") {
-            redraw = true;
-        } else {
-            const auto mut_id = trait_by_invlet( ch );
-            if( mut_id.empty() ) {
-                // entered a key that is not mapped to any mutation,
-                // -> leave screen
-                break;
-            }
-            const auto &mut_data = mutation_branch::get( mut_id );
-            if (menu_mode == "activating") {
-                if (mut_data.activated) {
-                    if (my_mutations[mut_id].powered) {
-                        add_msg(m_neutral, _("You stop using your %s."), mut_data.name.c_str());
-
-                        deactivate_mutation( mut_id );
-                        delwin(w_title);
-                        delwin(w_description);
-                        delwin(wBio);
-                        // Action done, leave screen
-                        break;
-                    } else if( (!mut_data.hunger || get_hunger() <= 400) &&
-                               (!mut_data.thirst || thirst <= 400) &&
-                               (!mut_data.fatigue || fatigue <= 400) ) {
-
-                        // this will clear the mutations menu for targeting purposes
-                        werase(wBio);
-                        wrefresh(wBio);
-                        delwin(w_title);
-                        delwin(w_description);
-                        delwin(wBio);
-                        g->draw();
-                        add_msg( m_neutral, _("You activate your %s."), mut_data.name.c_str() );
-                        activate_mutation( mut_id );
-                        // Action done, leave screen
-                        break;
-                    } else {
-                        popup( _( "You don't have enough in you to activate your %s!" ), mut_data.name.c_str() );
-                        redraw = true;
-                        continue;
-                    }
-                } else {
-                    popup(_("\
-You cannot activate %s!  To read a description of \
-%s, press '!', then '%c'."), mut_data.name.c_str(), mut_data.name.c_str(),
-                          my_mutations[mut_id].key );
-                    redraw = true;
-                }
-            }
-            if (menu_mode == "examining") { // Describing mutations, not activating them!
-                draw_exam_window(wBio, DESCRIPTION_LINE_Y, true);
-                // Clear the lines first
-                werase(w_description);
-                fold_and_print(w_description, 0, 0, WIDTH - 2, c_ltblue, mut_data.description);
-                wrefresh(w_description);
-            }
-        }
-    }
-    //if we activated a mutation, already killed the windows
-    if(!(menu_mode == "activating")) {
-        werase(wBio);
-        wrefresh(wBio);
-        delwin(w_title);
-        delwin(w_description);
-        delwin(wBio);
-    }
 }
 
 bool player::mutation_ok( const std::string &mutation, bool force_good, bool force_bad ) const
@@ -1059,7 +739,7 @@ bool player::mutate_towards( const std::string &mut )
     // It shouldn't pick a Threshold anyway--they're supposed to be non-Valid
     // and aren't categorized. This can happen if someone makes a threshold mut. into a prereq.
     if (threshold) {
-        add_msg(_("You feel something straining deep inside you, yearning to be free..."));
+        add_msg_if_player(_("You feel something straining deep inside you, yearning to be free..."));
         return false;
     }
     if (profession) {
@@ -1075,7 +755,7 @@ bool player::mutate_towards( const std::string &mut )
 
     // No crossing The Threshold by simply not having it
     if (!has_threshreq && !threshreq.empty()) {
-        add_msg(_("You feel something straining deep inside you, yearning to be free..."));
+        add_msg_if_player(_("You feel something straining deep inside you, yearning to be free..."));
         return false;
     }
 
@@ -1126,8 +806,13 @@ bool player::mutate_towards( const std::string &mut )
         } else {
             rating = m_neutral;
         }
-        add_msg(rating, _("Your %1$s mutation turns into %2$s!"),
-                replace_mdata.name.c_str(), mdata.name.c_str());
+        // TODO: Limit this to visible mutations
+        // TODO: In case invisible mutation turns into visible or vice versa
+        //  print only the visible mutation appearing/disappearing
+        add_msg_player_or_npc(rating,
+            _("Your %1$s mutation turns into %2$s!"),
+            _("<npcname>'s %1$s mutation turns into %2$s!"),
+            replace_mdata.name.c_str(), mdata.name.c_str() );
         add_memorial_log(pgettext("memorial_male", "'%s' mutation turned into '%s'"),
                          pgettext("memorial_female", "'%s' mutation turned into '%s'"),
                          replace_mdata.name.c_str(), mdata.name.c_str());
@@ -1147,8 +832,10 @@ bool player::mutate_towards( const std::string &mut )
         } else {
             rating = m_neutral;
         }
-        add_msg(rating, _("Your %1$s mutation turns into %2$s!"),
-                replace_mdata.name.c_str(), mdata.name.c_str());
+        add_msg_player_or_npc(rating,
+            _("Your %1$s mutation turns into %2$s!"),
+            _("<npcname>'s %1$s mutation turns into %2$s!"),
+            replace_mdata.name.c_str(), mdata.name.c_str() );
         add_memorial_log(pgettext("memorial_male", "'%s' mutation turned into '%s'"),
                          pgettext("memorial_female", "'%s' mutation turned into '%s'"),
                          replace_mdata.name.c_str(), mdata.name.c_str());
@@ -1171,8 +858,10 @@ bool player::mutate_towards( const std::string &mut )
             rating = m_mixed;
         }
         // If this new mutation cancels a base trait, remove it and add the mutation at the same time
-        add_msg(rating, _("Your innate %1$s trait turns into %2$s!"),
-                cancel_mdata.name.c_str(), mdata.name.c_str());
+        add_msg_player_or_npc( rating,
+            _("Your innate %1$s trait turns into %2$s!"),
+            _("<npcname>'s innate %1$s trait turns into %2$s!"),
+            cancel_mdata.name.c_str(), mdata.name.c_str() );
         add_memorial_log(pgettext("memorial_male", "'%s' mutation turned into '%s'"),
                         pgettext("memorial_female", "'%s' mutation turned into '%s'"),
                         cancel_mdata.name.c_str(), mdata.name.c_str());
@@ -1191,7 +880,11 @@ bool player::mutate_towards( const std::string &mut )
         } else {
             rating = m_neutral;
         }
-        add_msg(rating, _("You gain a mutation called %s!"), mdata.name.c_str());
+        // TODO: Limit to visible mutations
+        add_msg_player_or_npc( rating,
+            _("You gain a mutation called %s!"),
+            _("<npcname> gains a mutation called %s!"),
+            mdata.name.c_str() );
         add_memorial_log(pgettext("memorial_male", "Gained the mutation '%s'."),
                          pgettext("memorial_female", "Gained the mutation '%s'."),
                          mdata.name.c_str());
@@ -1299,8 +992,10 @@ void player::remove_mutation( const std::string &mut )
         } else {
             rating = m_neutral;
         }
-        add_msg(rating, _("Your %1$s mutation turns into %2$s."), mdata.name.c_str(),
-                replace_mdata.name.c_str());
+        add_msg_player_or_npc( rating,
+            _("Your %1$s mutation turns into %2$s."),
+            _("<npcname>'s %1$s mutation turns into %2$s."),
+            mdata.name.c_str(), replace_mdata.name.c_str() );
         set_mutation(replacing);
         mutation_loss_effect(mut);
         mutation_effect(replacing);
@@ -1317,8 +1012,10 @@ void player::remove_mutation( const std::string &mut )
         } else {
             rating = m_neutral;
         }
-        add_msg(rating, _("Your %1$s mutation turns into %2$s."), mdata.name.c_str(),
-                replace_mdata.name.c_str());
+        add_msg_player_or_npc( rating,
+            _("Your %1$s mutation turns into %2$s."),
+            _("<npcname>'s %1$s mutation turns into %2$s."),
+            mdata.name.c_str(), replace_mdata.name.c_str() );
         set_mutation(replacing2);
         mutation_loss_effect(mut);
         mutation_effect(replacing2);
@@ -1334,7 +1031,10 @@ void player::remove_mutation( const std::string &mut )
         } else {
             rating = m_neutral;
         }
-        add_msg(rating, _("You lose your %s mutation."), mdata.name.c_str());
+        add_msg_player_or_npc( rating,
+            _("You lose your %s mutation."),
+            _("<npcname> loses their %s mutation."),
+            mdata.name.c_str() );
         mutation_loss_effect(mut);
     }
 

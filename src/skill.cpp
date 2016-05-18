@@ -88,7 +88,7 @@ void Skill::load_skill(JsonObject &jsobj)
                         std::move(tags));
 }
 
-const Skill *Skill::from_legacy_int( const int legacy_id )
+skill_id Skill::from_legacy_int( const int legacy_id )
 {
     static const std::array<skill_id, 28> legacy_skills = { {
         skill_id::NULL_ID, skill_id("dodge"), skill_id("melee"), skill_id("unarmed"),
@@ -100,13 +100,13 @@ const Skill *Skill::from_legacy_int( const int legacy_id )
         skill_id("survival"), skill_id("traps"), skill_id("swimming"), skill_id("driving"),
     } };
     if( static_cast<size_t>( legacy_id ) < legacy_skills.size() ) {
-        return &legacy_skills[legacy_id].obj();
+        return legacy_skills[legacy_id];
     }
     debugmsg( "legacy skill id %d is invalid", legacy_id );
-    return &skills.front(); // return a non-null pointer because callers might not expect a nullptr
+    return skills.front().ident(); // return a non-null id because callers might not expect a null-id
 }
 
-const Skill* Skill::random_skill_with_tag(const std::string& tag)
+skill_id Skill::random_skill_with_tag( const std::string &tag)
 {
     std::vector<Skill const*> valid;
     for (auto const &s : skills) {
@@ -116,14 +116,14 @@ const Skill* Skill::random_skill_with_tag(const std::string& tag)
     }
     if( valid.empty() ) {
         debugmsg( "could not find a skill with the %s tag", tag.c_str() );
-        return &skills.front();
+        return skills.front().ident();
     }
-    return random_entry( valid );
+    return random_entry( valid )->ident();
 }
 
-const Skill* Skill::random_skill()
+skill_id Skill::random_skill()
 {
-    return &skills[rng( 0, skills.size() - 1 )];
+    return skills[rng( 0, skills.size() - 1 )].ident();
 }
 
 size_t Skill::skill_count()
@@ -152,11 +152,18 @@ SkillLevel::SkillLevel(int minLevel, int maxLevel, int minExercise, int maxExerc
 {
 }
 
-void SkillLevel::train(int amount)
+void SkillLevel::train(int amount, bool skip_scaling)
 {
-    _exercise += amount;
+    if( skip_scaling ) {
+        _exercise += amount;
+    } else {
+        const double scaling = OPTIONS["SKILL_TRAINING_SPEED"];
+        if( scaling > 0.0 ) {
+            _exercise += divide_roll_remainder( amount * scaling, 1.0 );
+        }
+    }
 
-    if (_exercise >= 100 * (_level + 1) * (_level + 1)) {
+    if( _exercise >= 100 * (_level + 1) * (_level + 1) ) {
         _exercise = 0;
         ++_level;
     }
@@ -219,6 +226,11 @@ void SkillLevel::readBook(int minimumGain, int maximumGain, int maximumLevel)
     }
 
     practice();
+}
+
+bool SkillLevel::can_train() const
+{
+    return OPTIONS["SKILL_TRAINING_SPEED"] > 0.0;
 }
 
 //Actually take the difference in barter skill between the two parties involved

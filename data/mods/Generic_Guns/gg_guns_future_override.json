@@ -15,7 +15,6 @@
       "weight": 2114,
      "volume": 8,
      "bashing": 10,
-     "cutting": 0,
      "to_hit": -1,
      "ranged_damage": -2,
      "dispersion": 105,
@@ -44,7 +43,6 @@
      "weight": 1333,
      "volume": 3,
      "bashing": 8,
-     "cutting": 0,
      "to_hit": -2,
      "dispersion": 250,
      "sight_dispersion": 100,
@@ -56,7 +54,7 @@
      "loudness" : 160,
      "valid_mod_locations": [[ "accessories", 2 ],[ "barrel", 1 ],[ "bore", 1 ],[ "grip", 1 ],[ "sights", 1 ],[ "stock", 1 ],[ "underbarrel", 1 ]]
     },
-    { 
+    {
      "id": "rifle_308",
      "type": "GUN",
      "symbol": "(",
@@ -72,7 +70,6 @@
      "weight": 2311,
      "volume": 8,
      "bashing": 10,
-     "cutting": 0,
      "to_hit": -1,
      "ranged_damage": -1,
      "dispersion": 75,
@@ -101,7 +98,6 @@
      "weight": 2011,
      "volume": 6,
      "bashing": 6,
-     "cutting": 0,
      "to_hit": -1,
      "ranged_damage": -2,
      "dispersion": 155,
@@ -113,7 +109,7 @@
      "reload": 100,
      "loudness" : 160,
      "valid_mod_locations": [[ "accessories", 4 ],[ "barrel", 1 ],[ "bore", 1 ],[ "conversion", 1 ],[ "grip", 1 ],[ "magazine", 2 ],[ "mechanism", 4 ],[ "muzzle", 1 ],[ "rail", 1 ],[ "sights", 1 ],[ "stock", 1 ],[ "underbarrel", 1 ]]
-    },  
+    },
     {
      "id": "l_sp_9mm",
      "type": "GUN",
@@ -130,7 +126,6 @@
      "weight": 1140,
      "volume": 3,
      "bashing": 8,
-     "cutting": 0,
      "to_hit": -2,
      "ranged_damage": 1,
      "range": 1,
@@ -139,10 +134,14 @@
      "aim_speed" : 4,
      "recoil": 60,
      "durability": 9,
-     "clip_size": 20,
      "reload": 400,
      "loudness" : 125,
-     "valid_mod_locations": [[ "accessories", 2 ],[ "barrel", 1 ],[ "bore", 1 ],[ "conversion", 1 ],[ "grip", 1 ],[ "magazine", 2 ],[ "mechanism", 4 ],[ "muzzle", 1 ],[ "rail", 1 ],[ "sights", 1 ],[ "stock", 1 ],[ "underbarrel", 1 ]]
+     "valid_mod_locations": [[ "accessories", 2 ],[ "barrel", 1 ],[ "bore", 1 ],[ "conversion", 1 ],[ "grip", 1 ],[ "magazine", 2 ],[ "mechanism", 4 ],[ "muzzle", 1 ],[ "rail", 1 ],[ "sights", 1 ],[ "stock", 1 ],[ "underbarrel", 1 ]],
+     "magazine_well" : 1,
+     "magazines" : [
+       [ "9mm", [ "lw21mag" ] ],
+       [ "45", [ "lw12mag" ] ]
+     ]
     },
     {
      "id": "l_mp_9mm",
@@ -160,7 +159,6 @@
      "weight": 1170,
      "volume": 3,
      "bashing": 8,
-     "cutting": 0,
      "to_hit": -2,
      "ranged_damage": 1,
      "range": 1,
@@ -171,10 +169,14 @@
      "durability": 8,
      "//": "The M93R can go through up to 110 rounds in six seconds, FWIW.",
      "burst": 3,
-     "clip_size": 21,
      "reload": 425,
      "loudness" : 125,
-     "valid_mod_locations": [[ "accessories", 2 ],[ "barrel", 1 ],[ "bore", 1 ],[ "conversion", 1 ],[ "grip", 1 ],[ "magazine", 2 ],[ "mechanism", 4 ],[ "muzzle", 1 ],[ "rail", 1 ],[ "sights", 1 ],[ "stock", 1 ],[ "underbarrel", 1 ]]
+     "valid_mod_locations": [[ "accessories", 2 ],[ "barrel", 1 ],[ "bore", 1 ],[ "conversion", 1 ],[ "grip", 1 ],[ "magazine", 2 ],[ "mechanism", 4 ],[ "muzzle", 1 ],[ "rail", 1 ],[ "sights", 1 ],[ "stock", 1 ],[ "underbarrel", 1 ]],
+     "magazine_well" : 1,
+     "magazines" : [
+       [ "9mm", [ "lw21mag" ] ],
+       [ "45", [ "lw12mag" ] ]
+     ]
     },
     {
      "id": "l_lookout_9mm",
@@ -192,7 +194,6 @@
      "weight": 1090,
      "volume": 2,
      "bashing": 9,
-     "cutting": 0,
      "to_hit": -2,
      "ranged_damage": 1,
      "dispersion": 165,
@@ -221,7 +222,6 @@
      "weight": 2370,
      "volume": 3,
      "bashing": 7,
-     "cutting": 0,
      "to_hit": -2,
      "ranged_damage": -2,
      "range": -8,
@@ -251,7 +251,6 @@
      "weight": 3850,
      "volume": 11,
      "bashing": 10,
-     "cutting": 0,
      "to_hit": -1,
      "ranged_damage": 2,
      "range": 2,

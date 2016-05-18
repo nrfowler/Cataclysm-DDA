@@ -38,7 +38,8 @@ struct null_id_type;
  * a declaration is just enough.
  */
 template<typename T>
-class string_id {
+class string_id
+{
     public:
         typedef string_id<T> This;
 
@@ -50,21 +51,19 @@ class string_id {
         // Beautiful C++11: enable_if makes sure that S is always something that can be used to constructor
         // a std::string, otherwise a "no matching function to call..." error is generated.
         template<typename S, class = typename
-            std::enable_if< std::is_convertible<S, std::string >::value>::type >
-        explicit string_id( S && id ) : _id( std::forward<S>( id ) ) {
+                 std::enable_if< std::is_convertible<S, std::string >::value>::type >
+        explicit string_id( S && id, int cid = -1 ) : _id( std::forward<S>( id ) ), _cid( cid ) {
         }
         /**
          * Default constructor constructs an empty id string.
          * Note that this id class does not enforce empty id strings (or any specific string at all)
          * to be special. Every string (including the empty one) may be a valid id.
          */
-        string_id() : _id() {
-        }
+        string_id() : _id(), _cid( -1 ) {}
         /**
          * Create a copy of the @ref NULL_ID. See @ref null_id_type.
          */
-        string_id( const null_id_type & ) : _id( NULL_ID._id ) {
-        }
+        string_id( const null_id_type & ) : _id( NULL_ID._id ), _cid( NULL_ID._cid ) {}
         /* This is here to appease clang, which thinks there is some ambiguity in
         `string_id<T> X = NULL_ID;`, gcc accepts it, but clang can not decide between implicit
         move assignment operator and implicit copy assignment operator. */
@@ -90,13 +89,18 @@ class string_id {
         bool operator!=( const This &rhs ) const {
             return _id != rhs._id;
         }
-
+        /**
+         * The unusual comparator, compares the string id to char *
+         */
+        bool operator==( const char *rhs ) const {
+            return _id == rhs;
+        }
         /**
          * Interface to the plain C-string of the id. This function mimics the std::string
          * object. Ids are often used in debug messages, where they are forwarded as C-strings
          * to be included in the format string, e.g. debugmsg("invalid id: %s", id.c_str())
          */
-        const char* c_str() const {
+        const char *c_str() const {
             return _id.c_str();
         }
         /**
@@ -105,6 +109,10 @@ class string_id {
          * the class).
          */
         const std::string &str() const {
+            return _id;
+        }
+
+        explicit operator std::string() const {
             return _id;
         }
 
@@ -124,6 +132,14 @@ class string_id {
          */
         bool is_valid() const;
         /**
+         * Returns whether this id is empty. An empty id can still be valid,
+         * and emptiness does not mean that it's null. Named is_empty() to
+         * keep consistency with the rest is_.. functions
+         */
+        bool is_empty() const {
+            return _id.empty();
+        }
+        /**
          * The null-id itself. `NULL_ID.is_null()` must always return true. See @ref is_null.
          */
         static const string_id<T> NULL_ID;
@@ -138,8 +154,7 @@ class string_id {
          * Note: per definition the null-id shall be valid. This allows to use it in places
          * that require a (valid) id, but it can still represent a "don't use it" value.
          */
-        bool is_null() const
-        {
+        bool is_null() const {
             return operator==( NULL_ID );
         }
         /**
@@ -155,24 +170,39 @@ class string_id {
          * }
          * \endcode
          */
-        explicit operator bool() const
-        {
+        explicit operator bool() const {
             return !is_null();
         }
+
+        // @todo Exposed for now. Hide these and make them accessible to the generic_factory only
+
+        /**
+         * Assigns a new value for the cached int id.
+         */
+        void set_cid( const int_id<T> &cid ) const {
+            _cid = cid.to_i();
+        }
+        /**
+         * Returns the current value of cached id
+         */
+        int_id<T> get_cid() const {
+            return int_id<T>( _cid );
+        }
+
     private:
         std::string _id;
+        mutable int _cid;
 };
 
 // Support hashing of string based ids by forwarding the hash of the string.
-namespace std {
-    template<typename T>
-    struct hash< string_id<T> >
-    {
-        std::size_t operator()( const string_id<T> &v) const
-        {
-            return hash<std::string>()( v.str() );
-        }
-    };
+namespace std
+{
+template<typename T>
+struct hash< string_id<T> > {
+    std::size_t operator()( const string_id<T> &v ) const {
+        return hash<std::string>()( v.str() );
+    }
+};
 }
 
 /**
@@ -197,14 +227,14 @@ namespace std {
  */
 struct null_id_type {
     template<typename T>
-    operator const string_id<T> &() const
-    {
+    operator const string_id<T> &() const {
         return string_id<T>::NULL_ID;
     }
 };
 
-namespace {
-    const null_id_type NULL_ID{};
+namespace
+{
+const null_id_type NULL_ID {};
 }
 
 #endif

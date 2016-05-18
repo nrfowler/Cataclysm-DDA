@@ -1,6 +1,17 @@
 [
 {
   "type" : "recipe",
+  "result": "scroll_blank",
+  "id_suffix": "uncraft",
+  "category": "CC_NONCRAFT",
+  "subcategory": "CSC_NONCRAFT",
+  "difficulty": 0,
+  "time": 100,
+  "reversible": true,
+  "flags": ["BLIND_EASY"],
+  "components": [ [ [ "paper", 5 ] ] ]
+},{
+  "type" : "recipe",
   "result": "silver_glyph",
   "id_suffix": "uncraft",
   "category": "CC_NONCRAFT",
@@ -8,8 +19,8 @@
   "difficulty": 0,
   "time": 600,
   "reversible": true,
-  "autolearn": false,
-  "qualities":[ {"id":"HAMMER","level":1,"amount":1} ],
+  "flags": ["BLIND_EASY"],
+  "qualities":[ {"id":"HAMMER","level":1} ],
   "components": [ [ [ "silver_small", 95 ] ] ]
 },{
   "type" : "recipe",
@@ -21,7 +32,7 @@
   "difficulty": 3,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
+  "flags": ["BLIND_HARD"],
   "tools": [ [ [ "hexenhammer", -1 ] ]
   ],
   "components": [ [ [ "essence_dull", 15 ] ] ]
@@ -32,10 +43,10 @@
   "category": "CC_NONCRAFT",
   "subcategory": "CSC_NONCRAFT",
   "skill_used": "magic",
-  "difficulty": 0,
+  "difficulty": 1,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
+  "flags": ["BLIND_HARD"],
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [ [ [ "essence_dull", 5 ] ] ]
 },{
@@ -45,14 +56,30 @@
   "category": "CC_NONCRAFT",
   "subcategory": "CSC_NONCRAFT",
   "skill_used": "magic",
-  "difficulty": 2,
+  "difficulty": 4,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [
     [ [ "gold_small", 625 ] ],
     [ [ "essence_dull", 30 ] ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "robe_shadow",
+  "id_suffix": "uncraft",
+  "category": "CC_NONCRAFT",
+  "subcategory": "CSC_NONCRAFT",
+  "skill_used": "magic",
+  "difficulty": 7,
+  "time": 50000,
+  "reversible": true,
+  "qualities" : [{"id":"CUT","level":1}],
+  "tools": [ [ [ "hexenhammer", -1 ] ] ],
+  "components": [
+    [ [ "rag", 19 ] ],
+    [ [ "fur", 4 ] ],
+    [ [ "essence_dull", 105 ] ]
   ]
 },{
   "type" : "recipe",
@@ -64,7 +91,6 @@
   "difficulty": 5,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [
     [ [ "scrap", 6 ] ],
@@ -77,10 +103,9 @@
   "category": "CC_NONCRAFT",
   "subcategory": "CSC_NONCRAFT",
   "skill_used": "magic",
-  "difficulty": 4,
+  "difficulty": 7,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [
     [ [ "gold_small", 625 ] ],
@@ -94,14 +119,29 @@
   "category": "CC_NONCRAFT",
   "subcategory": "CSC_NONCRAFT",
   "skill_used": "magic",
-  "difficulty": 4,
+  "difficulty": 2,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [
     [ [ "silver_small", 165 ] ],
     [ [ "essence_dull", 15 ] ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "armor_wyrm",
+  "id_suffix": "uncraft",
+  "category": "CC_NONCRAFT",
+  "subcategory": "CSC_NONCRAFT",
+  "skill_used": "magic",
+  "difficulty": 3,
+  "time": 50000,
+  "reversible": true,
+  "qualities" : [{"id":"CUT","level":1}],
+  "tools": [ [ [ "hexenhammer", -1 ] ] ],
+  "components": [
+    [ [ "leather", 42 ] ],
+    [ [ "essence_dull", 20 ] ]
   ]
 },{
   "type" : "recipe",
@@ -113,7 +153,6 @@
   "difficulty": 4,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [
     [ [ "silver_small", 600 ] ],
@@ -130,7 +169,6 @@
   "difficulty": 5,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [
     [ [ "silver_small", 95 ] ],
@@ -146,7 +184,6 @@
   "difficulty": 5,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [
     [ [ "silver_small", 95 ] ],
@@ -162,7 +199,6 @@
   "difficulty": 6,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [
     [ [ "silver_small", 95 ] ],
@@ -178,7 +214,6 @@
   "difficulty": 6,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [
     [ [ "silver_small", 95 ] ],
@@ -186,7 +221,7 @@
   ]
 },{
   "type" : "recipe",
-  "result": "summon_flying_polyp",
+  "result": "summon_dark_wyrm",
   "id_suffix": "uncraft",
   "category": "CC_NONCRAFT",
   "subcategory": "CSC_NONCRAFT",
@@ -194,7 +229,6 @@
   "difficulty": 7,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [
     [ [ "silver_small", 95 ] ],
@@ -210,11 +244,40 @@
   "difficulty": 7,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [
     [ [ "silver_small", 95 ] ],
     [ [ "essence_dull", 45 ] ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "summon_jabberwock",
+  "id_suffix": "uncraft",
+  "category": "CC_NONCRAFT",
+  "subcategory": "CSC_NONCRAFT",
+  "skill_used": "magic",
+  "difficulty": 8,
+  "time": 50000,
+  "reversible": true,
+  "tools": [ [ [ "hexenhammer", -1 ] ] ],
+  "components": [
+    [ [ "silver_small", 95 ] ],
+    [ [ "essence_dull", 60 ] ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "summon_flying_polyp",
+  "id_suffix": "uncraft",
+  "category": "CC_NONCRAFT",
+  "subcategory": "CSC_NONCRAFT",
+  "skill_used": "magic",
+  "difficulty": 8,
+  "time": 50000,
+  "reversible": true,
+  "tools": [ [ [ "hexenhammer", -1 ] ] ],
+  "components": [
+    [ [ "silver_small", 95 ] ],
+    [ [ "essence_dull", 60 ] ]
   ]
 },{
   "type" : "recipe",
@@ -223,14 +286,13 @@
   "category": "CC_NONCRAFT",
   "subcategory": "CSC_NONCRAFT",
   "skill_used": "magic",
-  "difficulty": 8,
+  "difficulty": 9,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [
     [ [ "silver_small", 95 ] ],
-    [ [ "essence_dull", 60 ] ]
+    [ [ "essence_dull", 75 ] ]
   ]
 },{
   "type" : "recipe",
@@ -242,7 +304,6 @@
   "difficulty": 9,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [
     [ [ "silver_small", 95 ] ],
@@ -258,11 +319,134 @@
   "difficulty": 4,
   "time": 50000,
   "reversible": true,
-  "autolearn": false,
   "tools": [ [ [ "hexenhammer", -1 ] ] ],
   "components": [
     [ [ "scrap", 12 ] ],
     [ [ "essence_dull", 25 ] ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "spear_pestilence",
+  "id_suffix": "uncraft",
+  "category": "CC_NONCRAFT",
+  "subcategory": "CSC_NONCRAFT",
+  "skill_used": "magic",
+  "difficulty": 6,
+  "time": 50000,
+  "reversible": true,
+  "tools": [ [ [ "hexenhammer", -1 ] ] ],
+  "components": [
+    [ [ "scrap", 10 ] ],
+    [ [ "meal_chitin_piece", 8 ] ],
+    [ [ "essence_dull", 60 ] ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "scroll_sun",
+  "id_suffix": "uncraft",
+  "category": "CC_NONCRAFT",
+  "subcategory": "CSC_NONCRAFT",
+  "skill_used": "magic",
+  "difficulty": 2,
+  "time": 50000,
+  "reversible": true,
+  "flags": ["BLIND_EASY"],
+  "tools": [
+    [ [ "hexenhammer", -1 ] ],
+    [ [ "fire", -1 ] ]
+  ],
+  "components": [
+    [ [ "essence_dull", 15 ] ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "scroll_moon",
+  "id_suffix": "uncraft",
+  "category": "CC_NONCRAFT",
+  "subcategory": "CSC_NONCRAFT",
+  "skill_used": "magic",
+  "difficulty": 2,
+  "time": 50000,
+  "reversible": true,
+  "flags": ["BLIND_EASY"],
+  "tools": [
+    [ [ "hexenhammer", -1 ] ],
+    [ [ "fire", -1 ] ]
+  ],
+  "components": [
+    [ [ "essence_dull", 15 ] ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "scroll_artiface",
+  "id_suffix": "uncraft",
+  "category": "CC_NONCRAFT",
+  "subcategory": "CSC_NONCRAFT",
+  "skill_used": "magic",
+  "difficulty": 3,
+  "time": 50000,
+  "reversible": true,
+  "flags": ["BLIND_EASY"],
+  "tools": [
+    [ [ "hexenhammer", -1 ] ],
+    [ [ "fire", -1 ] ]
+  ],
+  "components": [
+    [ [ "essence_dull", 30 ] ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "scroll_nature",
+  "id_suffix": "uncraft",
+  "category": "CC_NONCRAFT",
+  "subcategory": "CSC_NONCRAFT",
+  "skill_used": "magic",
+  "difficulty": 3,
+  "time": 50000,
+  "reversible": true,
+  "flags": ["BLIND_EASY"],
+  "tools": [
+    [ [ "hexenhammer", -1 ] ],
+    [ [ "fire", -1 ] ]
+  ],
+  "components": [
+    [ [ "essence_dull", 30 ] ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "scroll_destruction",
+  "id_suffix": "uncraft",
+  "category": "CC_NONCRAFT",
+  "subcategory": "CSC_NONCRAFT",
+  "skill_used": "magic",
+  "difficulty": 4,
+  "time": 50000,
+  "reversible": true,
+  "flags": ["BLIND_EASY"],
+  "tools": [
+    [ [ "hexenhammer", -1 ] ],
+    [ [ "fire", -1 ] ]
+  ],
+  "components": [
+    [ [ "essence_dull", 45 ] ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "scroll_subversion",
+  "id_suffix": "uncraft",
+  "category": "CC_NONCRAFT",
+  "subcategory": "CSC_NONCRAFT",
+  "skill_used": "magic",
+  "difficulty": 4,
+  "time": 50000,
+  "reversible": true,
+  "flags": ["BLIND_EASY"],
+  "tools": [
+    [ [ "hexenhammer", -1 ] ],
+    [ [ "fire", -1 ] ]
+  ],
+  "components": [
+    [ [ "essence_dull", 45 ] ]
   ]
 },{
   "type" : "recipe",
@@ -274,13 +458,13 @@
   "difficulty": 10,
   "time": 100000,
   "reversible": true,
-  "autolearn": false,
+  "flags": ["BLIND_EASY"],
   "tools": [
     [ [ "hexenhammer", -1 ] ],
     [ [ "book_hexenhammer", -1 ] ],
     [ [ "fire", -1 ] ]
   ],
-  "components": [ [ [ "essence_dull", 100 ] ] ]
+  "components": [ [ [ "essence_dull", 150 ] ] ]
 },{
   "type" : "recipe",
   "result": "scourge_staff",
@@ -291,12 +475,50 @@
   "difficulty": 10,
   "time": 100000,
   "reversible": true,
-  "autolearn": false,
+  "flags": ["BLIND_EASY"],
   "tools": [
     [ [ "hexenhammer", -1 ] ],
     [ [ "book_hexenhammer", -1 ] ],
     [ [ "fire", -1 ] ]
   ],
-  "components": [ [ [ "essence_dull", 100 ] ] ]
+  "components": [ [ [ "essence_dull", 150 ] ] ]
+},{
+  "type" : "recipe",
+  "result": "stormbringer",
+  "id_suffix": "uncraft",
+  "category": "CC_NONCRAFT",
+  "subcategory": "CSC_NONCRAFT",
+  "skill_used": "magic",
+  "difficulty": 10,
+  "time": 100000,
+  "reversible": true,
+  "flags": ["BLIND_EASY"],
+  "tools": [
+    [ [ "hexenhammer", -1 ] ],
+    [ [ "book_hexenhammer", -1 ] ],
+    [ [ "fire", -1 ] ]
+  ],
+  "components": [
+    [ [ "essence_dull", 150 ] ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "cleric_ring",
+  "id_suffix": "uncraft",
+  "category": "CC_NONCRAFT",
+  "subcategory": "CSC_NONCRAFT",
+  "skill_used": "magic",
+  "difficulty": 10,
+  "time": 100000,
+  "reversible": true,
+  "flags": ["BLIND_EASY"],
+  "tools": [
+    [ [ "hexenhammer", -1 ] ],
+    [ [ "book_hexenhammer", -1 ] ],
+    [ [ "fire", -1 ] ]
+  ],
+  "components": [
+    [ [ "essence_dull", 150 ] ]
+  ]
 }
 ]
