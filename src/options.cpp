@@ -7,17 +7,19 @@
 #include "cursesdef.h"
 #include "path_info.h"
 #include "mapsharing.h"
+#include "sounds.h"
 #include "cata_utility.h"
 #include "input.h"
 #include "worldfactory.h"
 #include "catacharset.h"
+#include "game_constants.h"
+#include "string_input_popup.h"
 
 #ifdef TILES
 #include "cata_tiles.h"
 #endif // TILES
 
 #include <stdlib.h>
-#include <fstream>
 #include <string>
 #include <locale>
 #include <sstream>
@@ -38,14 +40,7 @@ extern std::unique_ptr<cata_tiles> tilecontext;
 
 std::map<std::string, std::string> TILESETS; // All found tilesets: <name, tileset_dir>
 std::map<std::string, std::string> SOUNDPACKS; // All found soundpacks: <name, soundpack_dir>
-std::unordered_map<std::string, options_manager::cOpt> OPTIONS;
-std::unordered_map<std::string, options_manager::cOpt> ACTIVE_WORLD_OPTIONS;
-options_data optionsdata; // store extraneous options data that doesn't need to be in OPTIONS,
-std::vector<std::pair<std::string, std::string> > vPages;
-std::map<int, std::vector<std::string> > mPageItems;
 std::map<std::string, int> mOptionsSort;
-std::map<std::string, std::string> optionNames;
-int iWorldOptPage;
 
 options_manager &get_options()
 {
@@ -53,27 +48,24 @@ options_manager &get_options()
     return single_instance;
 }
 
-options_data::options_data()
+options_manager::options_manager()
 {
     enable_json("DEFAULT_REGION");
     // to allow class based init_data functions to add values to a 'string' type option, add:
     //   enable_json("OPTION_KEY_THAT_GETS_STRING_ENTRIES_ADDED_VIA_JSON");
-    // also, in options.h, add this before 'class options_data'
-    //   class my_class;
-    // and inside options_data above public:
-    //   friend class my_class;
     // then, in the my_class::load_json (or post-json setup) method:
-    //   optionsdata.addme("OPTION_KEY_THAT_GETS_STRING_ENTRIES_ADDED_VIA_JSON", "thisvalue");
+    //   get_options().add_value("OPTION_KEY_THAT_GETS_STRING_ENTRIES_ADDED_VIA_JSON", "thisvalue");
 }
 
-void options_data::enable_json(const std::string &lvar)
+static const std::string blank_value( 1, 001 ); // because "" might be valid
+
+void options_manager::enable_json(const std::string &lvar)
 {
-    post_json_verify[ lvar ] = std::string( 1, 001 ); // because "" might be valid
+    post_json_verify[ lvar ] = blank_value;
 }
 
-void options_data::add_retry(const std::string &lvar, const::std::string &lval)
+void options_manager::add_retry(const std::string &lvar, const::std::string &lval)
 {
-    static const std::string blank_value( 1, 001 );
     std::map<std::string, std::string>::const_iterator it = post_json_verify.find(lvar);
     if ( it != post_json_verify.end() && it->second == blank_value ) {
         // initialized with impossible value: valid
@@ -81,35 +73,29 @@ void options_data::add_retry(const std::string &lvar, const::std::string &lval)
     }
 }
 
-void options_data::add_value( const std::string &lvar, const std::string &lval,
-                              std::string lvalname )
+void options_manager::add_value( const std::string &lvar, const std::string &lval,
+                                 const std::string &lvalname )
 {
-    static const std::string blank_value( 1, 001 );
-
     std::map<std::string, std::string>::const_iterator it = post_json_verify.find(lvar);
     if ( it != post_json_verify.end() ) {
-        auto ot = OPTIONS.find(lvar);
-        if ( ot != OPTIONS.end() && ot->second.sType == "string_select" ) {
-            for(std::vector<std::string>::const_iterator eit = ot->second.vItems.begin();
+        auto ot = options.find( lvar );
+        if( ot != options.end() && ot->second.sType == "string_select" ) {
+            for( auto eit = ot->second.vItems.begin();
                 eit != ot->second.vItems.end(); ++eit) {
-                if ( *eit == lval ) { // already in
+                if( eit->first == lval ) { // already in
                     return;
                 }
             }
-            ot->second.vItems.push_back(lval);
-            if ( optionNames.find(lval) == optionNames.end() ) {
-                optionNames[ lval ] = ( lvalname == "" ? lval : lvalname );
-            }
+            ot->second.vItems.emplace_back( lval, lvalname.empty() ? lval : lvalname );
             // our value was saved, then set to default, so set it again.
             if ( it->second == lval ) {
-                OPTIONS[ lvar ].setValue( lval );
+                options[ lvar ].setValue( lval );
             }
         }
 
     }
 }
 
-//Default constructor
 options_manager::cOpt::cOpt()
 {
     sType = "VOID";
@@ -117,108 +103,137 @@ options_manager::cOpt::cOpt()
     hide = COPT_NO_HIDE;
 }
 
-//string select constructor
-options_manager::cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
-           const std::string sItemsIn, std::string sDefaultIn, copt_hide_t opt_hide)
+//add string select option
+void options_manager::add(const std::string sNameIn, const std::string sPageIn,
+                            const std::string sMenuTextIn, const std::string sTooltipIn,
+                            std::vector<std::pair<std::string, std::string>> sItemsIn, std::string sDefaultIn,
+                            copt_hide_t opt_hide)
 {
-    sPage = sPageIn;
-    sMenuText = sMenuTextIn;
-    sTooltip = sTooltipIn;
-    sType = "string_select";
+    cOpt thisOpt;
 
-    hide = opt_hide;
+    thisOpt.sName = sNameIn;
+    thisOpt.sPage = sPageIn;
+    thisOpt.sMenuText = sMenuTextIn;
+    thisOpt.sTooltip = sTooltipIn;
+    thisOpt.sType = "string_select";
 
-    std::stringstream ssTemp(sItemsIn);
-    std::string sItem;
-    while (std::getline(ssTemp, sItem, ',')) {
-        vItems.push_back(sItem);
+    thisOpt.hide = opt_hide;
+    thisOpt.vItems = sItemsIn;
+
+    if (thisOpt.getItemPos(sDefaultIn) == -1) {
+        sDefaultIn = thisOpt.vItems[0].first;
     }
 
-    if (getItemPos(sDefaultIn) == -1) {
-        sDefaultIn = vItems[0];
-    }
+    thisOpt.sDefault = sDefaultIn;
+    thisOpt.sSet = sDefaultIn;
 
-    sDefault = sDefaultIn;
-    sSet = sDefaultIn;
+    thisOpt.setSortPos(sPageIn);
 
-    setSortPos(sPageIn);
+    options[sNameIn] = thisOpt;
 }
 
-//string input constructor
-options_manager::cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
-           const std::string sDefaultIn, const int iMaxLengthIn, copt_hide_t opt_hide)
+//add string input option
+void options_manager::add(const std::string sNameIn, const std::string sPageIn,
+                            const std::string sMenuTextIn, const std::string sTooltipIn,
+                            const std::string sDefaultIn, const int iMaxLengthIn,
+                            copt_hide_t opt_hide)
 {
-    sPage = sPageIn;
-    sMenuText = sMenuTextIn;
-    sTooltip = sTooltipIn;
-    sType = "string_input";
+    cOpt thisOpt;
 
-    hide = opt_hide;
+    thisOpt.sName = sNameIn;
+    thisOpt.sPage = sPageIn;
+    thisOpt.sMenuText = sMenuTextIn;
+    thisOpt.sTooltip = sTooltipIn;
+    thisOpt.sType = "string_input";
 
-    iMaxLength = iMaxLengthIn;
-    sDefault = (iMaxLength > 0) ? sDefaultIn.substr(0, iMaxLength) : sDefaultIn;
-    sSet = sDefault;
+    thisOpt.hide = opt_hide;
 
-    setSortPos(sPageIn);
+    thisOpt.iMaxLength = iMaxLengthIn;
+    thisOpt.sDefault = (thisOpt.iMaxLength > 0) ? sDefaultIn.substr(0, thisOpt.iMaxLength) : sDefaultIn;
+    thisOpt.sSet = thisOpt.sDefault;
+
+    thisOpt.setSortPos(sPageIn);
+
+    options[sNameIn] = thisOpt;
 }
 
-//bool constructor
-options_manager::cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
-           const bool bDefaultIn, copt_hide_t opt_hide)
+//add bool option
+void options_manager::add(const std::string sNameIn, const std::string sPageIn,
+                            const std::string sMenuTextIn, const std::string sTooltipIn,
+                            const bool bDefaultIn, copt_hide_t opt_hide)
 {
-    sPage = sPageIn;
-    sMenuText = sMenuTextIn;
-    sTooltip = sTooltipIn;
-    sType = "bool";
+    cOpt thisOpt;
 
-    hide = opt_hide;
+    thisOpt.sName = sNameIn;
+    thisOpt.sPage = sPageIn;
+    thisOpt.sMenuText = sMenuTextIn;
+    thisOpt.sTooltip = sTooltipIn;
+    thisOpt.sType = "bool";
 
-    bDefault = bDefaultIn;
-    bSet = bDefaultIn;
+    thisOpt.hide = opt_hide;
 
-    setSortPos(sPageIn);
+    thisOpt.bDefault = bDefaultIn;
+    thisOpt.bSet = bDefaultIn;
+
+    thisOpt.setSortPos(sPageIn);
+
+    options[sNameIn] = thisOpt;
 }
 
-//int constructor
-options_manager::cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
-           const int iMinIn, int iMaxIn, int iDefaultIn, copt_hide_t opt_hide)
+//add int option
+void options_manager::add(const std::string sNameIn, const std::string sPageIn,
+                            const std::string sMenuTextIn, const std::string sTooltipIn,
+                            const int iMinIn, int iMaxIn, int iDefaultIn,
+                            copt_hide_t opt_hide, const std::string &format )
 {
-    sPage = sPageIn;
-    sMenuText = sMenuTextIn;
-    sTooltip = sTooltipIn;
-    sType = "int";
+    cOpt thisOpt;
 
-    hide = opt_hide;
+    thisOpt.sName = sNameIn;
+    thisOpt.sPage = sPageIn;
+    thisOpt.sMenuText = sMenuTextIn;
+    thisOpt.sTooltip = sTooltipIn;
+    thisOpt.sType = "int";
+
+    thisOpt.format = format;
+
+    thisOpt.hide = opt_hide;
 
     if (iMinIn > iMaxIn) {
         iMaxIn = iMinIn;
     }
 
-    iMin = iMinIn;
-    iMax = iMaxIn;
+    thisOpt.iMin = iMinIn;
+    thisOpt.iMax = iMaxIn;
 
     if (iDefaultIn < iMinIn || iDefaultIn > iMaxIn) {
         iDefaultIn = iMinIn ;
     }
 
-    iDefault = iDefaultIn;
-    iSet = iDefaultIn;
+    thisOpt.iDefault = iDefaultIn;
+    thisOpt.iSet = iDefaultIn;
 
-    setSortPos(sPageIn);
+    thisOpt.setSortPos(sPageIn);
+
+    options[sNameIn] = thisOpt;
 }
 
-//int map constructor
-options_manager::cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
-           const std::map<int, std::string> mIntValuesIn, int iInitialIn, int iDefaultIn, copt_hide_t opt_hide)
+//add int map option
+void options_manager::add(const std::string sNameIn, const std::string sPageIn,
+                            const std::string sMenuTextIn, const std::string sTooltipIn,
+                            const std::map<int, std::string> mIntValuesIn, int iInitialIn,
+                            int iDefaultIn, copt_hide_t opt_hide)
 {
-    sPage = sPageIn;
-    sMenuText = sMenuTextIn;
-    sTooltip = sTooltipIn;
-    sType = "int_map";
+    cOpt thisOpt;
 
-    hide = opt_hide;
+    thisOpt.sName = sNameIn;
+    thisOpt.sPage = sPageIn;
+    thisOpt.sMenuText = sMenuTextIn;
+    thisOpt.sTooltip = sTooltipIn;
+    thisOpt.sType = "int_map";
 
-    mIntValues = mIntValuesIn;
+    thisOpt.hide = opt_hide;
+
+    thisOpt.mIntValues = mIntValuesIn;
 
     auto item = mIntValuesIn.find( iInitialIn );
     if ( item == mIntValuesIn.cend() ) {
@@ -230,43 +245,54 @@ options_manager::cOpt::cOpt(const std::string sPageIn, const std::string sMenuTe
         iDefaultIn = mIntValuesIn.cbegin()->first;
     }
 
-    iDefault = iDefaultIn;
-    iSet = iInitialIn;
+    thisOpt.iDefault = iDefaultIn;
+    thisOpt.iSet = iInitialIn;
 
-    setSortPos(sPageIn);
+    thisOpt.setSortPos(sPageIn);
+
+    options[sNameIn] = thisOpt;
 }
 
-//float constructor
-options_manager::cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
-           const float fMinIn, float fMaxIn, float fDefaultIn, float fStepIn, copt_hide_t opt_hide)
+//add float option
+void options_manager::add(const std::string sNameIn, const std::string sPageIn,
+                            const std::string sMenuTextIn, const std::string sTooltipIn,
+                            const float fMinIn, float fMaxIn, float fDefaultIn,
+                            float fStepIn, copt_hide_t opt_hide, const std::string &format )
 {
-    sPage = sPageIn;
-    sMenuText = sMenuTextIn;
-    sTooltip = sTooltipIn;
-    sType = "float";
+    cOpt thisOpt;
 
-    hide = opt_hide;
+    thisOpt.sName = sNameIn;
+    thisOpt.sPage = sPageIn;
+    thisOpt.sMenuText = sMenuTextIn;
+    thisOpt.sTooltip = sTooltipIn;
+    thisOpt.sType = "float";
+
+    thisOpt.format = format;
+
+    thisOpt.hide = opt_hide;
 
     if (fMinIn > fMaxIn) {
         fMaxIn = fMinIn;
     }
 
-    fMin = fMinIn;
-    fMax = fMaxIn;
-    fStep = fStepIn;
+    thisOpt.fMin = fMinIn;
+    thisOpt.fMax = fMaxIn;
+    thisOpt.fStep = fStepIn;
 
     if (fDefaultIn < fMinIn || fDefaultIn > fMaxIn) {
         fDefaultIn = fMinIn ;
     }
 
-    fDefault = fDefaultIn;
-    fSet = fDefaultIn;
+    thisOpt.fDefault = fDefaultIn;
+    thisOpt.fSet = fDefaultIn;
 
-    setSortPos(sPageIn);
+    thisOpt.setSortPos(sPageIn);
+
+    options[sNameIn] = thisOpt;
 }
 
 //helper functions
-bool options_manager::cOpt::is_hidden()
+bool options_manager::cOpt::is_hidden() const
 {
     switch( hide ) {
     case COPT_NO_HIDE:
@@ -280,7 +306,7 @@ bool options_manager::cOpt::is_hidden()
 #endif
 
     case COPT_CURSES_HIDE:
-#ifndef TILES // If not defined. it's curses interface.
+#ifndef TILES // If not defined.  it's curses interface.
         return true;
 #else
         return false;
@@ -319,32 +345,57 @@ void options_manager::cOpt::setSortPos(const std::string sPageIn)
     }
 }
 
-int options_manager::cOpt::getSortPos()
+int options_manager::cOpt::getSortPos() const
 {
     return iSortPos;
 }
 
-std::string options_manager::cOpt::getPage()
+std::string options_manager::cOpt::getName() const
+{
+    return sName;
+}
+
+std::string options_manager::cOpt::getPage() const
 {
     return sPage;
 }
 
-std::string options_manager::cOpt::getMenuText()
+std::string options_manager::cOpt::getMenuText() const
 {
-    return sMenuText;
+    return _( sMenuText.c_str() );
 }
 
-std::string options_manager::cOpt::getTooltip()
+std::string options_manager::cOpt::getTooltip() const
 {
-    return sTooltip;
+    return _( sTooltip.c_str() );
 }
 
-std::string options_manager::cOpt::getType()
+std::string options_manager::cOpt::getType() const
 {
     return sType;
 }
 
-std::string options_manager::cOpt::getValue()
+bool options_manager::cOpt::operator==( const cOpt &rhs ) const
+{
+    if( sType != rhs.sType ) {
+        return false;
+    } else if( sType == "string_select" || sType == "string_input" ) {
+        return sSet == rhs.sSet;
+    } else if( sType == "bool" ) {
+        return bSet == rhs.bSet;
+    } else if( sType == "int" || sType == "int_map" ) {
+        return iSet == rhs.iSet;
+    } else if( sType == "float" ) {
+        return fSet == rhs.fSet;
+    } else if( sType == "VOID" ) {
+        return true;
+    } else {
+        debugmsg( "unknown option type %s", sType.c_str() );
+        return false;
+    }
+}
+
+std::string options_manager::cOpt::getValue( bool classis_locale ) const
 {
     if (sType == "string_select" || sType == "string_input") {
         return sSet;
@@ -353,26 +404,65 @@ std::string options_manager::cOpt::getValue()
         return (bSet) ? "true" : "false";
 
     } else if (sType == "int" || sType == "int_map") {
-        std::stringstream ssTemp;
-        ssTemp << iSet;
-        return ssTemp.str();
+        return string_format( format, iSet );
 
     } else if (sType == "float") {
-        std::stringstream ssTemp;
-        ssTemp.imbue(std::locale::classic());
-        const int precision = (fStep >= 0.09) ? 1 : (fStep >= 0.009) ? 2 : (fStep >= 0.0009) ? 3 : 4;
-        ssTemp.precision(precision);
-        ssTemp << std::fixed << fSet;
+        std::ostringstream ssTemp;
+        ssTemp.imbue( classis_locale ? std::locale::classic() : std::locale() );
+        ssTemp.precision( 2 );
+        ssTemp.setf( std::ios::fixed, std::ios::floatfield );
+        ssTemp << fSet;
         return ssTemp.str();
     }
 
     return "";
 }
 
-std::string options_manager::cOpt::getValueName()
+template<>
+std::string options_manager::cOpt::value_as<std::string>() const
+{
+    if( sType != "string_select" && sType != "string_input" ) {
+        debugmsg( "%s tried to get string value from option of type %s", sName.c_str(), sType.c_str() );
+    }
+    return sSet;
+}
+
+template<>
+bool options_manager::cOpt::value_as<bool>() const
+{
+    if( sType != "bool" ) {
+        debugmsg( "%s tried to get boolean value from option of type %s", sName.c_str(), sType.c_str() );
+    }
+    return bSet;
+}
+
+template<>
+float options_manager::cOpt::value_as<float>() const
+{
+    if( sType != "float" ) {
+        debugmsg( "%s tried to get float value from option of type %s", sName.c_str(), sType.c_str() );
+    }
+    return fSet;
+}
+
+template<>
+int options_manager::cOpt::value_as<int>() const
+{
+    if( sType != "int" && sType != "int_map" ) {
+        debugmsg( "%s tried to get integer value from option of type %s", sName.c_str(), sType.c_str() );
+    }
+    return iSet;
+}
+
+std::string options_manager::cOpt::getValueName() const
 {
     if (sType == "string_select") {
-        return optionNames[sSet];
+        const auto iter = std::find_if( vItems.begin(), vItems.end(), [&]( const std::pair<std::string, std::string> &e ) {
+            return e.first == sSet;
+        } );
+        if( iter != vItems.end() ) {
+            return _( iter->second.c_str() );
+        }
 
     } else if (sType == "bool") {
         return (bSet) ? _("True") : _("False");
@@ -384,15 +474,21 @@ std::string options_manager::cOpt::getValueName()
     return getValue();
 }
 
-std::string options_manager::cOpt::getDefaultText(const bool bTranslated)
+std::string options_manager::cOpt::getDefaultText(const bool bTranslated) const
 {
     if (sType == "string_select") {
+        const auto iter = std::find_if( vItems.begin(), vItems.end(),
+        [this]( const std::pair<std::string, std::string> &elem ) {
+            return elem.first == sDefault;
+        } );
+        const std::string defaultName = iter == vItems.end() ? std::string() :
+                                        ( bTranslated ? _( iter->second.c_str() ) : iter->first );
         const std::string sItems = enumerate_as_string( vItems.begin(), vItems.end(),
-        [ this, bTranslated ]( const std::string &elem ) {
-            return bTranslated ? optionNames[elem] : elem;
+        [bTranslated]( const std::pair<std::string, std::string> &elem ) {
+            return bTranslated ? _( elem.second.c_str() ) : elem.first;
         }, false );
-        return string_format(_("Default: %s - Values: %s"),
-                             (bTranslated) ? optionNames[sDefault].c_str() : sDefault.c_str(), sItems.c_str());
+        return string_format( _( "Default: %s - Values: %s" ),
+                              defaultName.c_str(), sItems.c_str() );
 
     } else if (sType == "string_input") {
         return string_format(_("Default: %s"), sDefault.c_str());
@@ -413,11 +509,11 @@ std::string options_manager::cOpt::getDefaultText(const bool bTranslated)
     return "";
 }
 
-int options_manager::cOpt::getItemPos(const std::string sSearch)
+int options_manager::cOpt::getItemPos(const std::string sSearch) const
 {
     if (sType == "string_select") {
         for (size_t i = 0; i < vItems.size(); i++) {
-            if (vItems[i] == sSearch) {
+            if( vItems[i].first == sSearch ) {
                 return i;
             }
         }
@@ -426,7 +522,7 @@ int options_manager::cOpt::getItemPos(const std::string sSearch)
     return -1;
 }
 
-int options_manager::cOpt::getMaxLength()
+int options_manager::cOpt::getMaxLength() const
 {
     if (sType == "string_input") {
         return iMaxLength;
@@ -444,13 +540,15 @@ void options_manager::cOpt::setNext()
             iNext = 0;
         }
 
-        sSet = vItems[iNext];
+        sSet = vItems[iNext].first;
 
     } else if (sType == "string_input") {
         int iMenuTextLength = sMenuText.length();
-        sSet = string_input_popup("", (iMaxLength > 80) ? 80 : ((iMaxLength < iMenuTextLength) ? iMenuTextLength : iMaxLength+1),
-                                  sSet, sMenuText, "", iMaxLength
-                                 );
+        string_input_popup()
+        .width( ( iMaxLength > 80 ) ? 80 : ( ( iMaxLength < iMenuTextLength ) ? iMenuTextLength : iMaxLength + 1) )
+        .description( sMenuText )
+        .max_length( iMaxLength )
+        .edit( sSet );
 
     } else if (sType == "bool") {
         bSet = !bSet;
@@ -486,7 +584,7 @@ void options_manager::cOpt::setPrev()
             iPrev = vItems.size() - 1;
         }
 
-        sSet = vItems[iPrev];
+        sSet = vItems[iPrev].first;
 
     } else if (sType == "string_select") {
         setNext();
@@ -532,6 +630,19 @@ void options_manager::cOpt::setValue(float fSetIn)
 }
 
 //set value
+void options_manager::cOpt::setValue( int iSetIn )
+{
+    if( sType != "int" ) {
+        debugmsg( "tried to set an int value to a %s option", sType.c_str() );
+        return;
+    }
+    iSet = iSetIn;
+    if( iSet < iMin || iSet > iMax ) {
+        iSet = iDefault;
+    }
+}
+
+//set value
 void options_manager::cOpt::setValue(std::string sSetIn)
 {
     if (sType == "string_select") {
@@ -573,810 +684,789 @@ void options_manager::cOpt::setValue(std::string sSetIn)
     }
 }
 
-//Set default class behaviour to float
-options_manager::cOpt::operator float() const
-{
-    if (sType == "string_select") {
-        return (!sSet.empty() && sSet == sDefault) ? 1.0f : 0.0f;
-    } else if (sType == "string_input") {
-        return (!sSet.empty()) ? 1.0f : 0.0f;
-    } else if (sType == "bool") {
-        return (bSet) ? 1.0f : 0.0f;
-    } else if (sType == "int" || sType == "int_map") {
-        return static_cast<float>(iSet);
-    } else if (sType == "float") {
-        return fSet;
-    }
-
-    return 0.0f;
-}
-
-options_manager::cOpt::operator int() const
-{
-    if (sType == "string_select") {
-        return (!sSet.empty() && sSet == sDefault) ? 1 : 0;
-    } else if (sType == "string_input") {
-        return (!sSet.empty()) ? 1 : 0;
-    } else if (sType == "bool") {
-        return (bSet) ? 1 : 0;
-    } else if (sType == "int" || sType == "int_map") {
-        return iSet;
-    } else if (sType == "float") {
-        return static_cast<int>(fSet);
-    }
-
-    return 0;
-}
-
-options_manager::cOpt::operator bool() const
-{
-    return static_cast<float>(*this) != 0.0f;
-}
-
-// if (class == "string")
-bool options_manager::cOpt::operator==(const std::string sCompare) const
-{
-    return ((sType == "string_select" || sType == "string_input") && sSet == sCompare);
-}
-
-// if (class != "string")
-bool options_manager::cOpt::operator!=(const std::string sCompare) const
-{
-    return !(*this == sCompare);
-}
-
 /** Fill a mapping with values.
  * Scans all directores in FILENAMES[dirname_label] directory for
  * a file named FILENAMES[filename_label].
  * All found values added to resource_option as name, resource_dir.
  * Furthermore, it builds possible values list for cOpt class.
- * @return string containing all found resources in form "resource1,resource2,resource3,..."
  */
-static std::string build_resource_list(
+static std::vector<std::pair<std::string, std::string>> build_resource_list(
     std::map<std::string, std::string> &resource_option, std::string operation_name,
     std::string dirname_label, std::string filename_label ) {
-    std::string resource_names;
+    std::vector<std::pair<std::string, std::string>> resource_names;
 
     resource_option.clear();
     auto const resource_dirs = get_directories_with( FILENAMES[filename_label],
                                                      FILENAMES[dirname_label], true );
 
     for( auto &resource_dir : resource_dirs ) {
-        std::ifstream fin;
-        std::string file = resource_dir + "/" + FILENAMES[filename_label];
+        read_from_file( resource_dir + "/" + FILENAMES[filename_label], [&]( std::istream &fin ) {
+            std::string resource_name;
+            std::string view_name;
+            // should only have 2 values inside it, otherwise is going to only load the last 2 values
+            while( !fin.eof() ) {
+                std::string sOption;
+                fin >> sOption;
 
-        fin.open( file.c_str() );
-        if( !fin.is_open() ) {
-            DebugLog( D_ERROR, DC_ALL ) << "Can't read " << operation_name << " config from " << file;
-        }
-
-        std::string resource_name;
-        // should only have 2 values inside it, otherwise is going to only load the last 2 values
-        while( !fin.eof() ) {
-            std::string sOption;
-            fin >> sOption;
-
-            if( sOption.empty() ) {
-                getline( fin, sOption );    // Empty line, chomp it
-            } else if( sOption[0] == '#' ) { // # indicates a comment
-                getline( fin, sOption );
-            } else {
-                if( sOption.find( "NAME" ) != std::string::npos ) {
-                    resource_name = "";
-                    getline( fin, resource_name );
-                    resource_name.erase( std::remove( resource_name.begin(), resource_name.end(), ',' ), resource_name.end() );
-                    resource_name = trim( resource_name );
-                    if( resource_names.empty() ) {
-                        resource_names += resource_name;
-                    } else {
-                        resource_names += std::string( "," );
-                        resource_names += resource_name;
+                if( sOption.empty() ) {
+                    getline( fin, sOption );    // Empty line, chomp it
+                } else if( sOption[0] == '#' ) { // # indicates a comment
+                    getline( fin, sOption );
+                } else {
+                    if( sOption.find( "NAME" ) != std::string::npos ) {
+                        resource_name = "";
+                        getline( fin, resource_name );
+                        resource_name = trim( resource_name );
+                    } else if( sOption.find( "VIEW" ) != std::string::npos ) {
+                        view_name = "";
+                        getline( fin, view_name );
+                        view_name = trim( view_name );
+                        break;
                     }
-                } else if( sOption.find( "VIEW" ) != std::string::npos ) {
-                    std::string viewName = "";
-                    getline( fin, viewName );
-                    viewName = trim( viewName );
-                    optionNames[resource_name] = viewName;
-                    break;
                 }
             }
-        }
-        fin.close();
-        if( resource_option.count( resource_name ) != 0 ) {
-            DebugLog( D_ERROR, DC_ALL ) << "Found " << operation_name << " duplicate with name " << resource_name;
-        } else {
-            resource_option.insert( std::pair<std::string,std::string>( resource_name, resource_dir ) );
-        }
+            resource_names.emplace_back( resource_name, view_name.empty() ? resource_name : view_name );
+            if( resource_option.count( resource_name ) != 0 ) {
+                DebugLog( D_ERROR, DC_ALL ) << "Found " << operation_name << " duplicate with name " << resource_name;
+            } else {
+                resource_option.insert( std::pair<std::string,std::string>( resource_name, resource_dir ) );
+            }
+        } );
     }
 
     return resource_names;
 }
 
-std::string options_manager::build_tilesets_list()
+std::vector<std::pair<std::string, std::string>> options_manager::build_tilesets_list()
 {
-    std::string tileset_names = build_resource_list( TILESETS, "tileset",
+    auto tileset_names = build_resource_list( TILESETS, "tileset",
                                                      "gfxdir", "tileset-conf");
 
     if( tileset_names.empty() ) {
-        optionNames["deon"] = _("Deon's");
-        optionNames["hoder"] = _("Hoder's");
-        return "hoder,deon";
+        tileset_names.emplace_back( "hoder", translate_marker( "Hoder's" ) );
+        tileset_names.emplace_back( "deon", translate_marker( "Deon's" ) );
     }
     return tileset_names;
 }
 
-std::string options_manager::build_soundpacks_list()
+std::vector<std::pair<std::string, std::string>> options_manager::build_soundpacks_list()
 {
-    const std::string soundpack_names = build_resource_list( SOUNDPACKS, "soundpack",
+    auto soundpack_names = build_resource_list( SOUNDPACKS, "soundpack",
                                                              "sounddir", "soundpack-conf");
     if( soundpack_names.empty() ) {
-        optionNames["basic"] = _("Basic");
-        return "basic";
+        soundpack_names.emplace_back( "basic", translate_marker( "Basic" ) );
     }
     return soundpack_names;
 }
 
 void options_manager::init()
 {
-    OPTIONS.clear();
-    ACTIVE_WORLD_OPTIONS.clear();
+    options.clear();
     vPages.clear();
     mPageItems.clear();
     mOptionsSort.clear();
-    optionNames.clear();
 
-    vPages.push_back(std::make_pair("general", _("General")));
-    vPages.push_back(std::make_pair("interface", _("Interface")));
-    vPages.push_back(std::make_pair("graphics", _("Graphics")));
+    vPages.emplace_back( "general", translate_marker( "General" ) );
+    vPages.emplace_back( "interface", translate_marker( "Interface" ) );
+    vPages.emplace_back( "graphics", translate_marker( "Graphics" ) );
     // when sharing maps only admin is allowed to change these.
     if(!MAP_SHARING::isCompetitive() || MAP_SHARING::isAdmin()) {
-        vPages.push_back(std::make_pair("debug", _("Debug")));
+        vPages.emplace_back( "debug", translate_marker( "Debug" ) );
     }
     iWorldOptPage = vPages.size();
     // when sharing maps only admin is allowed to change these.
     if(!MAP_SHARING::isCompetitive() || MAP_SHARING::isAdmin()) {
-        vPages.push_back(std::make_pair("world_default", _("World Defaults")));
+        vPages.emplace_back( "world_default", translate_marker( "World Defaults" ) );
     }
 
-    std::string tileset_names;
-    tileset_names = build_tilesets_list(); //get the tileset names and set the optionNames
-
-    std::string soundpack_names;
-    soundpack_names = build_soundpacks_list(); //get the soundpack names and set the optionNames
-
     ////////////////////////////GENERAL//////////////////////////
-    OPTIONS["DEF_CHAR_NAME"] = cOpt("general", _("Default character name"),
-                                    _("Set a default character name that will be used instead of a random name on character creation."),
-                                    "", 30
-                                   );
+    add( "DEF_CHAR_NAME", "general", translate_marker( "Default character name" ),
+        translate_marker( "Set a default character name that will be used instead of a random name on character creation." ),
+        "", 30
+        );
 
     mOptionsSort["general"]++;
 
-    OPTIONS["AUTO_PICKUP"] = cOpt("general", _("Auto pickup enabled"),
-                                  _("Enable item auto pickup. Change pickup rules with the Auto Pickup Manager in the Help Menu ?3"),
-                                  false
-                                 );
+    add( "AUTO_PICKUP", "general", translate_marker( "Auto pickup enabled" ),
+        translate_marker( "Enable item auto pickup.  Change pickup rules with the Auto Pickup Manager in the Help Menu ?3" ),
+        false
+        );
 
-    OPTIONS["AUTO_PICKUP_ADJACENT"] = cOpt("general", _("Auto pickup adjacent"),
-                                           _("If true, will enable to pickup items one tile around to the player. You can assign No Auto Pickup zones with the Zones Manager 'Y' key for eg. your homebase."),
-                                           false
-                                          );
+    add( "AUTO_PICKUP_ADJACENT", "general", translate_marker( "Auto pickup adjacent" ),
+        translate_marker( "If true, will enable to pickup items one tile around to the player.  You can assign No Auto Pickup zones with the Zones Manager 'Y' key for eg.  your homebase." ),
+        false
+        );
 
-    OPTIONS["AUTO_PICKUP_ZERO"] = cOpt("general", _("Auto pickup 0 vol light items"),
-                                       _("Auto pickup items with 0 Volume, and weight less than or equal to [option] * 50 grams. '0' disables this option"),
-                                       0, 20, 0
-                                      );
+    add( "AUTO_PICKUP_WEIGHT_LIMIT", "general", translate_marker( "Auto pickup light items" ),
+        translate_marker( "Auto pickup items with weight less than or equal to [option] * 50 grams.  You must also set the small items option.  '0' disables this option" ),
+        0, 20, 0
+        );
 
-    OPTIONS["AUTO_PICKUP_SAFEMODE"] = cOpt("general", _("Auto pickup safemode"),
-                                           _("Auto pickup is disabled as long as you can see monsters nearby. This is affected by Safemode proximity distance."),
-                                           false
-                                          );
+    add( "AUTO_PICKUP_VOL_LIMIT", "general", translate_marker( "Auto pickup small items" ),
+        translate_marker( "Auto pickup items with volume less than or equal to [option] * 50 milliliters.  You must also set the light items option.  '0' disables this option" ),
+        0, 20, 0
+        );
 
-    mOptionsSort["general"]++;
-
-    OPTIONS["DANGEROUS_PICKUPS"] = cOpt("general", _("Dangerous pickups"),
-                                        _("If false, will cause player to drop new items that cause them to exceed the weight limit."),
-                                        false
-                                       );
+    add( "AUTO_PICKUP_SAFEMODE", "general", translate_marker( "Auto pickup safe mode" ),
+        translate_marker( "Auto pickup is disabled as long as you can see monsters nearby.  This is affected by 'Safe Mode proximity distance'." ),
+        false
+        );
 
     mOptionsSort["general"]++;
 
-    OPTIONS["AUTOSAFEMODE"] = cOpt("general", _("Auto-safemode on by default"),
-                                   _("If true, auto-safemode will be on after starting a new game or loading."),
-                                   false
-                                  );
-
-    OPTIONS["AUTOSAFEMODETURNS"] = cOpt("general", _("Turns to re-enable safemode"),
-                                        _("Number of turns after safemode is re-enabled if no hostiles are in safemodeproximity distance."),
-                                        1, 100, 50
-                                       );
-
-    OPTIONS["SAFEMODE"] = cOpt("general", _("Safemode on by default"),
-                               _("If true, safemode will be on after starting a new game or loading."),
-                               true
-                              );
-
-    OPTIONS["SAFEMODEPROXIMITY"] = cOpt("general", _("Safemode proximity distance"),
-                                        _("If safemode is enabled, distance to hostiles when safemode should show a warning. 0 = Max player viewdistance."),
-                                        0, 50, 0
-                                       );
-
-    OPTIONS["SAFEMODEVEH"] = cOpt("general", _("Safemode when driving"),
-                                  _("When true, safemode will alert you of hostiles while you are driving a vehicle."),
-                                  false
-                                 );
+    add( "DANGEROUS_PICKUPS", "general", translate_marker( "Dangerous pickups" ),
+        translate_marker( "If false, will cause player to drop new items that cause them to exceed the weight limit." ),
+        false
+        );
 
     mOptionsSort["general"]++;
 
-    OPTIONS["TURN_DURATION"] = cOpt("general", _("Automatic Zombie Advancement"),
-                                    _("If enabled, zombies will take periodic gameplay turns. This value is the delay between each turn, in seconds. Works best with Safemode disabled. 0 = disabled."),
-                                    0.0, 10.0, 0.0, 0.05
-                                   );
+    add( "AUTOSAFEMODE", "general", translate_marker( "Auto-safe mode" ),
+        translate_marker( "If true, turns safemode automatically back on after it being disabled beforehand.  See option 'Turns to re-enable safe mode'" ),
+        false
+        );
+
+    add( "AUTOSAFEMODETURNS", "general", translate_marker( "Turns to re-enable safe mode" ),
+        translate_marker( "Number of turns after safe mode is re-enabled if no hostiles are in 'Safe Mode proximity distance'." ),
+        1, 100, 50
+        );
+
+    add( "SAFEMODE", "general", translate_marker( "Safe Mode" ),
+        translate_marker( "If true, will hold the game and display a warning if a hostile monster/npc is approaching." ),
+        true
+        );
+
+    add( "SAFEMODEPROXIMITY", "general", translate_marker( "Safe Mode proximity distance" ),
+        translate_marker( "If safe mode is enabled, distance to hostiles at which safe mode should show a warning.  0 = Max player viewdistance." ),
+        0, MAX_VIEW_DISTANCE, 0
+        );
+
+    add( "SAFEMODEVEH", "general", translate_marker( "Safe Mode when driving" ),
+        translate_marker( "When true, safe mode will alert you of hostiles while you are driving a vehicle." ),
+        false
+        );
 
     mOptionsSort["general"]++;
 
-    OPTIONS["AUTOSAVE"] = cOpt("general", _("Periodically autosave"),
-                               _("If true, game will periodically save the map. Autosaves occur based on in-game turns or real-time minutes, whichever is larger."),
-                               false
-                              );
-
-    OPTIONS["AUTOSAVE_TURNS"] = cOpt("general", _("Game turns between autosaves"),
-                                     _("Number of game turns between autosaves"),
-                                     10, 1000, 50
-                                    );
-
-    OPTIONS["AUTOSAVE_MINUTES"] = cOpt("general", _("Real minutes between autosaves"),
-                                       _("Number of real time minutes between autosaves"),
-                                       0, 127, 5
-                                      );
+    add( "TURN_DURATION", "general", translate_marker( "Realtime turn progression" ),
+        translate_marker( "If enabled, monsters will take periodic gameplay turns.  This value is the delay between each turn, in seconds.  Works best with Safe Mode disabled.  0 = disabled." ),
+        0.0, 10.0, 0.0, 0.05
+        );
 
     mOptionsSort["general"]++;
 
-    OPTIONS["CIRCLEDIST"] = cOpt("general", _("Circular distances"),
-                                 _("If true, the game will calculate range in a realistic way: light sources will be circles, diagonal movement will cover more ground and take longer. If disabled, everything is square: moving to the northwest corner of a building takes as long as moving to the north wall."),
-                                 false
-                                );
+    add( "AUTOSAVE", "general", translate_marker( "Periodically autosave" ),
+        translate_marker( "If true, game will periodically save the map.  Autosaves occur based on in-game turns or real-time minutes, whichever is larger." ),
+        false
+        );
 
-    optionNames["no"] = _("No");
-    //~ containers
-    optionNames["watertight"] = _("Watertight");
-    optionNames["all"] = _("All");
-    OPTIONS["DROP_EMPTY"] = cOpt("general", _("Drop empty containers"),
-                                 _("Set to drop empty containers after use. No: Don't drop any. - Watertight: All except watertight containers. - All: Drop all containers."),
-                                 "no,watertight,all", "no"
-                                );
+    add( "AUTOSAVE_TURNS", "general", translate_marker( "Game turns between autosaves" ),
+        translate_marker( "Number of game turns between autosaves" ),
+        10, 1000, 50
+        );
 
-    OPTIONS["AUTO_NOTES"] = cOpt("general", _("Auto notes"),
-                                 _("If true, automatically sets notes on places that have stairs that go up or down"),
-                                 false
-                                );
-
-    optionNames["ask"]      = _("Ask");
-    optionNames["always"]   = _("Always");
-    optionNames["never"]    = _("Never");
-    OPTIONS["DEATHCAM"]     = cOpt("general", _("DeathCam"),
-                                   _("Always: Always start deathcam. Ask: Query upon death. Never: Never show deathcam."),
-                                   "always,ask,never", "ask"
-                                  );
+    add( "AUTOSAVE_MINUTES", "general", translate_marker( "Real minutes between autosaves" ),
+        translate_marker( "Number of real time minutes between autosaves" ),
+        0, 127, 5
+        );
 
     mOptionsSort["general"]++;
 
-    OPTIONS["SOUNDPACKS"] = cOpt("general", _("Choose soundpack"),
-                            _("Choose the soundpack you want to use."),
-                            soundpack_names, "basic", COPT_NO_SOUND_HIDE
-                           ); // populate the options dynamically
-    OPTIONS["MUSIC_VOLUME"] = cOpt("general", _("Music Volume"),
-                                   _("Adjust the volume of the music being played in the background."),
-                                   0, 200, 100, COPT_NO_SOUND_HIDE
-                                  );
+    add( "CIRCLEDIST", "general", translate_marker( "Circular distances" ),
+        translate_marker( "If true, the game will calculate range in a realistic way: light sources will be circles, diagonal movement will cover more ground and take longer.  If disabled, everything is square: moving to the northwest corner of a building takes as long as moving to the north wall." ),
+        false
+        );
 
-    OPTIONS["SOUND_EFFECT_VOLUME"] = cOpt("general", _("Sound Effect Volume"),
-                                   _("Adjust the volume of sound effects being played by the game."),
-                                   0, 200, 100, COPT_NO_SOUND_HIDE
-                                  );
+    add( "DROP_EMPTY", "general", translate_marker( "Drop empty containers" ),
+        translate_marker( "Set to drop empty containers after use.  No: Don't drop any. - Watertight: All except watertight containers. - All: Drop all containers." ),
+        { { "no", translate_marker( "No" ) }, { "watertight", translate_marker( "Watertight" ) }, { "all", translate_marker( "All" ) } }, "no"
+        );
+
+    add( "AUTO_NOTES", "general", translate_marker( "Auto notes" ),
+        translate_marker( "If true, automatically sets notes on places that have stairs that go up or down" ),
+        true
+        );
+
+    add( "DEATHCAM", "general", translate_marker( "DeathCam" ),
+        translate_marker( "Always: Always start deathcam.  Ask: Query upon death.  Never: Never show deathcam." ),
+        { { "always", translate_marker( "Always" ) }, { "ask", translate_marker( "Ask" ) }, { "never", translate_marker( "Never" ) } }, "ask"
+        );
+
+    mOptionsSort["general"]++;
+
+    add( "SOUNDPACKS", "general", translate_marker( "Choose soundpack" ),
+        translate_marker( "Choose the soundpack you want to use." ),
+        build_soundpacks_list(), "basic", COPT_NO_SOUND_HIDE
+        ); // populate the options dynamically
+
+    add( "MUSIC_VOLUME", "general", translate_marker( "Music Volume" ),
+        translate_marker( "Adjust the volume of the music being played in the background." ),
+        0, 200, 100, COPT_NO_SOUND_HIDE
+        );
+
+    add( "SOUND_EFFECT_VOLUME", "general", translate_marker( "Sound Effect Volume" ),
+        translate_marker( "Adjust the volume of sound effects being played by the game." ),
+        0, 200, 100, COPT_NO_SOUND_HIDE
+        );
 
     ////////////////////////////INTERFACE////////////////////////
     // TODO: scan for languages like we do for tilesets.
-    optionNames[""] = _("System language");
-    // Note: language names are in their own language and are *not* translated at all.
-    // Note: Somewhere in github PR was better link to msdn.microsoft.com with language names.
-    // http://en.wikipedia.org/wiki/List_of_language_names
-    optionNames["en"] = R"(English)";
-    optionNames["fr"] =  R"(Français)";
-    optionNames["de"] = R"(Deutsch)";
-    optionNames["it_IT"] = R"(Italiano)";
-    optionNames["es_AR"] = R"(Español (Argentina))";
-    optionNames["es_ES"] = R"(Español (España))";
-    optionNames["ja"] = R"(日本語)";
-    optionNames["ko"] = R"(한국어)";
-    optionNames["pt_BR"] = R"(Português (Brasil))";
-    optionNames["pt_PT"] = R"(Português (Portugal))";
-    optionNames["ru"] = R"(Русский)";
-    optionNames["zh_CN"] = R"(中文(天朝))";
-    optionNames["zh_TW"] = R"(中文(台灣))";
-    OPTIONS["USE_LANG"] = cOpt("interface", _("Language"), _("Switch Language. Requires restart."),
-                               ",en,fr,de,it_IT,es_AR,es_ES,ja,ko,pt_BR,pt_PT,ru,zh_CN,zh_TW",
-                               ""
-                              );
+    add( "USE_LANG", "interface", translate_marker( "Language" ), translate_marker( "Switch Language." ),
+        { { "", translate_marker( "System language" ) },
+        // Note: language names are in their own language and are *not* translated at all.
+        // Note: Somewhere in github PR was better link to msdn.microsoft.com with language names.
+        // http://en.wikipedia.org/wiki/List_of_language_names
+          { "en", R"( English )" },
+          { "fr",  R"( Français )" },
+          { "de", R"( Deutsch )" },
+          { "it_IT", R"( Italiano )" },
+          { "es_AR", R"( Español ( Argentina ) )" },
+          { "es_ES", R"( Español ( España ) )" },
+          { "ja", R"( 日本語 )" },
+          { "ko", R"( 한국어 )" },
+          { "pl", R"( Polskie )" },
+          { "pt_BR", R"( Português ( Brasil ) )" },
+          { "ru", R"( Русский )" },
+          { "zh_CN", R"( 中文( 天朝 ) )" },
+          { "zh_TW", R"( 中文( 台灣 ) )" },
+        }, "" );
 
     mOptionsSort["interface"]++;
 
-    optionNames["fahrenheit"] = _("Fahrenheit");
-    optionNames["celsius"] = _("Celsius");
-    OPTIONS["USE_CELSIUS"] = cOpt("interface", _("Temperature units"),
-                                  _("Switch between Celsius and Fahrenheit."),
-                                  "fahrenheit,celsius", "fahrenheit"
-                                 );
+    add( "USE_CELSIUS", "interface", translate_marker( "Temperature units" ),
+        translate_marker( "Switch between Celsius and Fahrenheit." ),
+        { { "fahrenheit", translate_marker( "Fahrenheit" ) }, { "celsius", translate_marker( "Celsius" ) } }, "fahrenheit"
+        );
 
-    optionNames["mph"] = _("mph");
-    optionNames["km/h"] = _("km/h");
-    OPTIONS["USE_METRIC_SPEEDS"] = cOpt("interface", _("Speed units"),
-                                        _("Switch between km/h and mph."),
-                                        "mph,km/h", "mph"
-                                       );
+    add( "USE_METRIC_SPEEDS", "interface", translate_marker( "Speed units" ),
+        translate_marker( "Switch between km/h and mph." ),
+        { { "mph", translate_marker( "mph" ) }, { "km/h", translate_marker( "km/h" ) } }, "mph"
+        );
 
-    optionNames["lbs"] = _("lbs");
-    optionNames["kg"] = _("kg");
-    OPTIONS["USE_METRIC_WEIGHTS"] = cOpt("interface", _("Mass units"),
-                                         _("Switch between kg and lbs."),
-                                         "lbs,kg", "lbs"
-                                        );
+    add( "USE_METRIC_WEIGHTS", "interface", translate_marker( "Mass units" ),
+        translate_marker( "Switch between kg and lbs." ),
+        { { "lbs", translate_marker( "lbs" ) }, { "kg", translate_marker( "kg" ) } }, "lbs"
+        );
 
-    //~ 12h time, e.g. 11:59pm
-    optionNames["12h"] = _("12h");
-    //~ Military time, e.g. 2359
-    optionNames["military"] = _("Military");
-    //~ 24h time, e.g. 23:59
-    optionNames["24h"] = _("24h");
-    OPTIONS["24_HOUR"] = cOpt("interface", _("Time format"),
-                              _("12h: AM/PM, eg: 7:31 AM - Military: 24h Military, eg: 0731 - 24h: Normal 24h, eg: 7:31"),
-                              "12h,military,24h", "12h"
-                             );
+    add( "VOLUME_UNITS", "interface", translate_marker( "Volume units" ),
+        translate_marker( "Switch between the Cup ( c ), Liter ( L ) or Quart ( qt )." ),
+        { { "c", translate_marker( "Cup" ) }, { "l", translate_marker( "Liter" ) }, { "qt", translate_marker( "Quart" ) } }, "l"
+        );
+
+    add( "24_HOUR", "interface", translate_marker( "Time format" ),
+        translate_marker( "12h: AM/PM, eg: 7:31 AM - Military: 24h Military, eg: 0731 - 24h: Normal 24h, eg: 7:31" ),
+        //~ 12h time, e.g.  11:59pm
+        { { "12h", translate_marker( "12h" ) },
+        //~ Military time, e.g.  2359
+          { "military", translate_marker( "Military" ) },
+        //~ 24h time, e.g.  23:59
+          { "24h", translate_marker( "24h" ) } },
+        "12h" );
 
     mOptionsSort["interface"]++;
 
-    OPTIONS["FORCE_CAPITAL_YN"] = cOpt("interface", _("Force Y/N in prompts"),
-                                       _("If true, Y/N prompts are case-sensitive and y and n are not accepted."),
-                                       true
-                                      );
+    add( "FORCE_CAPITAL_YN", "interface", translate_marker( "Force Y/N in prompts" ),
+        translate_marker( "If true, Y/N prompts are case-sensitive and y and n are not accepted." ),
+        true
+        );
 
-    OPTIONS["SNAP_TO_TARGET"] = cOpt("interface", _("Snap to target"),
-                                     _("If true, automatically follow the crosshair when firing/throwing."),
-                                     false
-                                    );
+    add( "SNAP_TO_TARGET", "interface", translate_marker( "Snap to target" ),
+        translate_marker( "If true, automatically follow the crosshair when firing/throwing." ),
+        false
+        );
 
-    OPTIONS["SAVE_SLEEP"] = cOpt("interface", _("Ask to save before sleeping"),
-                                 _("If true, game will ask to save the map before sleeping."),
-                                 false
-                                );
+    add( "SAVE_SLEEP", "interface", translate_marker( "Ask to save before sleeping" ),
+        translate_marker( "If true, game will ask to save the map before sleeping." ),
+        false
+        );
 
-    OPTIONS["QUERY_DISASSEMBLE"] = cOpt("interface", _("Query on disassembly"),
-                                        _("If true, will query before disassembling items."),
-                                        true
-                                       );
+    add( "QUERY_DISASSEMBLE", "interface", translate_marker( "Query on disassembly" ),
+        translate_marker( "If true, will query before disassembling items." ),
+        true
+        );
 
-    OPTIONS["QUERY_KEYBIND_REMOVAL"] = cOpt("interface",
-                                            _("Query on keybinding removal"),
-                                            _("If true, will query before removing a keybinding from a hotkey."),
-                                            true
-                                           );
+    add( "QUERY_KEYBIND_REMOVAL", "interface", translate_marker( "Query on keybinding removal" ),
+        translate_marker( "If true, will query before removing a keybinding from a hotkey." ),
+        true
+        );
 
-    OPTIONS["CLOSE_ADV_INV"] = cOpt("interface", _("Close advanced inventory on move all"),
-                                    _("If true, will close the advanced inventory when the move all items command is used."),
-                                    false
-                                   );
+    add( "CLOSE_ADV_INV", "interface", translate_marker( "Close advanced inventory on move all" ),
+        translate_marker( "If true, will close the advanced inventory when the move all items command is used." ),
+        false
+        );
 
-    mOptionsSort["interface"]++;
+    add( "OPEN_DEFAULT_ADV_INV", "interface", translate_marker( "Open default advanced inventory layout" ),
+        translate_marker( "Open default advanced inventory layout instead of last opened layout" ),
+        false
+        );
 
-    OPTIONS["VEHICLE_ARMOR_COLOR"] = cOpt("interface", _("Vehicle plating changes part color"),
-                                          _("If true, vehicle parts will change color if they are armor plated"),
-                                          true
-                                         );
-
-    OPTIONS["DRIVING_VIEW_OFFSET"] = cOpt("interface", _("Auto-shift the view while driving"),
-                                          _("If true, view will automatically shift towards the driving direction"),
-                                          true
-                                         );
-
-    OPTIONS["VEHICLE_DIR_INDICATOR"] = cOpt("interface", _("Draw vehicle facing indicator"),
-                                            _("If true, when controlling a vehicle, a white 'X' (in curses version) or a crosshair (in tiles version) at distance 10 from the center will display its current facing."),
-                                            false
-                                           );
+    add( "INV_USE_ACTION_NAMES", "interface", translate_marker( "Display actions in Use Item menu" ),
+        translate_marker( "If true, actions ( like \"Read\", \"Smoke\", \"Wrap tighter\" ) will be displayed next to the corresponding items." ),
+        true
+        );
 
     mOptionsSort["interface"]++;
 
-    //~ sidebar position
-    optionNames["left"] = _("Left");
-    optionNames["right"] = _("Right");
-    OPTIONS["SIDEBAR_POSITION"] = cOpt("interface", _("Sidebar position"),
-                                       _("Switch between sidebar on the left or on the right side. Requires restart."),
-                                       "left,right", "right"
-                                      );
-    //~ sidebar style
-    optionNames["wider"] = _("Wider");
-    optionNames["narrow"] = _("Narrow");
-    OPTIONS["SIDEBAR_STYLE"] = cOpt("interface", _("Sidebar style"),
-                                    _("Switch between a narrower or wider sidebar. Requires restart."),
-                                    "wider,narrow", "narrow"
-                                   );
+    add( "VEHICLE_ARMOR_COLOR", "interface", translate_marker( "Vehicle plating changes part color" ),
+        translate_marker( "If true, vehicle parts will change color if they are armor plated" ),
+        true
+        );
 
-    //~ sidebar message log flow direction
-    optionNames["new_top"] = _("Top");
-    optionNames["new_bottom"] = _("Bottom");
-    OPTIONS["SIDEBAR_LOG_FLOW"] = cOpt("interface", _("Sidebar log flow"),
-                                       _("Where new sidebar log messages should show."),
-                                       "new_top,new_bottom", "new_bottom"
-                                      );
+    add( "DRIVING_VIEW_OFFSET", "interface", translate_marker( "Auto-shift the view while driving" ),
+        translate_marker( "If true, view will automatically shift towards the driving direction" ),
+        true
+        );
 
-    OPTIONS["MESSAGE_TTL"] = cOpt("interface", _("Sidebar log message display duration"),
-                                        _("Number of turns after which a message will be removed from the sidebar log. '0' disables this option."),
-                                        0, 1000, 0
-                                       );
+    add( "VEHICLE_DIR_INDICATOR", "interface", translate_marker( "Draw vehicle facing indicator" ),
+        translate_marker( "If true, when controlling a vehicle, a white 'X' ( in curses version ) or a crosshair ( in tiles version ) at distance 10 from the center will display its current facing." ),
+        true
+        );
 
     mOptionsSort["interface"]++;
 
-    OPTIONS["MOVE_VIEW_OFFSET"] = cOpt("interface", _("Move view offset"),
-                                       _("Move view by how many squares per keypress."),
-                                       1, 50, 1
-                                      );
+    add( "SIDEBAR_POSITION", "interface", translate_marker( "Sidebar position" ),
+        translate_marker( "Switch between sidebar on the left or on the right side.  Requires restart." ),
+        //~ sidebar position
+        { { "left", translate_marker( "Left" ) }, { "right", translate_marker( "Right" ) } }, "right"
+        );
 
-    OPTIONS["MENU_SCROLL"] = cOpt("interface", _("Centered menu scrolling"),
-                                  _("If true, menus will start scrolling in the center of the list, and keep the list centered."),
-                                  true
-                                 );
+    add( "SIDEBAR_STYLE", "interface", translate_marker( "Sidebar style" ),
+        translate_marker( "Switch between a narrower or wider sidebar.  Requires restart." ),
+        //~ sidebar style
+        { { "wider", translate_marker( "Wider" ) }, { "narrow", translate_marker( "Narrow" ) } }, "narrow"
+        );
 
-    optionNames["false"] = _("False");
-    optionNames["centered"] = _("Centered");
-    optionNames["edge"] = _("To edge");
-    OPTIONS["SHIFT_LIST_ITEM_VIEW"] = cOpt("interface", _("Shift list item view"),
-                                           _("Centered or to edge, shift the view toward the selected item if it is outside of your current viewport."),
-                                           "false,centered,edge",  "centered"
-                                          );
+    add( "LOG_FLOW", "interface", translate_marker( "Message log flow" ),
+        translate_marker( "Where new log messages should show." ),
+        //~ sidebar/message log flow direction
+        { { "new_top", translate_marker( "Top" ) }, { "new_bottom", translate_marker( "Bottom" ) } }, "new_bottom"
+        );
 
-    OPTIONS["AUTO_INV_ASSIGN"] = cOpt("interface", _("Auto inventory letters"),
-                                      _("If false, new inventory items will only get letters assigned if they had one before."),
-                                      true
-                                     );
+    add( "MESSAGE_TTL", "interface", translate_marker( "Sidebar log message display duration" ),
+        translate_marker( "Number of turns after which a message will be removed from the sidebar log.  '0' disables this option." ),
+        0, 1000, 0
+        );
 
-    OPTIONS["ITEM_HEALTH_BAR"] = cOpt("interface", _("Show item health bars"),
-                                      _("If true, show item health bars instead of reinforced, scratched etc. text."),
-                                      true
-                                     );
-
-    OPTIONS["ITEM_SYMBOLS"] = cOpt("interface", _("Show item symbols"),
-                                     _("If true, show item symbols in inventory and pick up menu."),
-                                     false
-                                    );
+    add( "ACCURACY_DISPLAY", "interface", translate_marker( "Aim window display style" ),
+        translate_marker( "How should confidence and steadiness be communicated to the player." ),
+        //~ aim bar style - bars or numbers
+        { { "numbers", translate_marker( "Numbers" ) }, { "bars", translate_marker( "Bars" ) } }, "bars"
+        );
 
     mOptionsSort["interface"]++;
 
-    OPTIONS["ENABLE_JOYSTICK"] = cOpt("interface", _("Enable Joystick"),
-                                      _("Enable input from joystick."),
-                                      true, COPT_CURSES_HIDE
-                                     );
+    add( "MOVE_VIEW_OFFSET", "interface", translate_marker( "Move view offset" ),
+        translate_marker( "Move view by how many squares per keypress." ),
+        1, 50, 1
+        );
 
-    //~ show mouse cursor
-    optionNames["show"] = _("Show");
-    //~ hide mouse cursor
-    optionNames["hide"] = _("Hide");
-    //~ hide mouse cursor when keyboard is used
-    optionNames["hidekb"] = _("HideKB");
-    OPTIONS["HIDE_CURSOR"] = cOpt("interface", _("Hide mouse cursor"),
-                                  _("Show: Cursor is always shown. Hide: Cursor is hidden. HideKB: Cursor is hidden on keyboard input and unhidden on mouse movement."),
-                                  "show,hide,hidekb", "show", COPT_CURSES_HIDE
-                                 );
+    add( "MENU_SCROLL", "interface", translate_marker( "Centered menu scrolling" ),
+        translate_marker( "If true, menus will start scrolling in the center of the list, and keep the list centered." ),
+        true
+        );
+
+    add( "SHIFT_LIST_ITEM_VIEW", "interface", translate_marker( "Shift list item view" ),
+        translate_marker( "Centered or to edge, shift the view toward the selected item if it is outside of your current viewport." ),
+        { { "false", translate_marker( "False" ) }, { "centered", translate_marker( "Centered" ) }, { "edge", translate_marker( "To edge" ) } },  "centered"
+        );
+
+    add( "AUTO_INV_ASSIGN", "interface", translate_marker( "Auto inventory letters" ),
+        translate_marker( "If false, new inventory items will only get letters assigned if they had one before." ),
+        true
+        );
+
+    add( "ITEM_HEALTH_BAR", "interface", translate_marker( "Show item health bars" ),
+        translate_marker( "If true, show item health bars instead of reinforced, scratched etc. text." ),
+        true
+        );
+
+    add( "ITEM_SYMBOLS", "interface", translate_marker( "Show item symbols" ),
+        translate_marker( "If true, show item symbols in inventory and pick up menu." ),
+        false
+        );
+
+    mOptionsSort["interface"]++;
+
+    add( "ENABLE_JOYSTICK", "interface", translate_marker( "Enable Joystick" ),
+        translate_marker( "Enable input from joystick." ),
+        true, COPT_CURSES_HIDE
+        );
+
+    add( "HIDE_CURSOR", "interface", translate_marker( "Hide mouse cursor" ),
+        translate_marker( "Show: Cursor is always shown.  Hide: Cursor is hidden.  HideKB: Cursor is hidden on keyboard input and unhidden on mouse movement." ),
+        //~ show mouse cursor
+        { { "show", translate_marker( "Show" ) },
+        //~ hide mouse cursor
+          { "hide", translate_marker( "Hide" ) },
+        //~ hide mouse cursor when keyboard is used
+          { "hidekb", translate_marker( "HideKB" ) } },
+        "show", COPT_CURSES_HIDE );
 
     ////////////////////////////GRAPHICS/////////////////////////
-    OPTIONS["ANIMATIONS"] = cOpt("graphics", _("Animations"),
-                                 _("If true, will display enabled animations."),
-                                 true
-                                );
+    add( "ANIMATIONS", "graphics", translate_marker( "Animations" ),
+        translate_marker( "If true, will display enabled animations." ),
+        true
+        );
 
-    OPTIONS["ANIMATION_RAIN"] = cOpt("graphics", _("Rain animation"),
-                                     _("If true, will display weather animations."),
-                                     true
-                                    );
+    add( "ANIMATION_RAIN", "graphics", translate_marker( "Rain animation" ),
+        translate_marker( "If true, will display weather animations." ),
+        true
+        );
 
-    OPTIONS["ANIMATION_SCT"] = cOpt("graphics", _("SCT animation"),
-                                    _("If true, will display scrolling combat text animations."),
-                                    true
-                                   );
+    add( "ANIMATION_SCT", "graphics", translate_marker( "SCT animation" ),
+        translate_marker( "If true, will display scrolling combat text animations." ),
+        true
+        );
 
-    OPTIONS["ANIMATION_DELAY"] = cOpt("graphics", _("Animation delay"),
-                                      _("The amount of time to pause between animation frames in ms."),
-                                      0, 100, 10
-                                     );
+    add( "ANIMATION_DELAY", "graphics", translate_marker( "Animation delay" ),
+        translate_marker( "The amount of time to pause between animation frames in ms." ),
+        0, 100, 10
+        );
 
-    mOptionsSort["graphics"]++;
-
-    OPTIONS["TERMINAL_X"] = cOpt("graphics", _("Terminal width"),
-                                 _("Set the size of the terminal along the X axis. Requires restart."),
-                                 80, 242, 80, COPT_POSIX_CURSES_HIDE
-                                );
-
-    OPTIONS["TERMINAL_Y"] = cOpt("graphics", _("Terminal height"),
-                                 _("Set the size of the terminal along the Y axis. Requires restart."),
-                                 24, 187, 24, COPT_POSIX_CURSES_HIDE
-                                );
+    add( "FORCE_REDRAW", "graphics", translate_marker( "Force redraw" ),
+        translate_marker( "If true, forces the game to redraw at least once per turn." ),
+        true
+        );
 
     mOptionsSort["graphics"]++;
 
-    OPTIONS["USE_TILES"] = cOpt("graphics", _("Use tiles"),
-                                _("If true, replaces some TTF rendered text with tiles."),
-                                true, COPT_CURSES_HIDE
-                               );
+    add( "TERMINAL_X", "graphics", translate_marker( "Terminal width" ),
+        translate_marker( "Set the size of the terminal along the X axis.  Requires restart." ),
+        80, 960, 80, COPT_POSIX_CURSES_HIDE
+        );
 
-    OPTIONS["TILES"] = cOpt("graphics", _("Choose tileset"),
-                            _("Choose the tileset you want to use."),
-                            tileset_names, "ChestHole", COPT_CURSES_HIDE
-                           ); // populate the options dynamically
+    add( "TERMINAL_Y", "graphics", translate_marker( "Terminal height" ),
+        translate_marker( "Set the size of the terminal along the Y axis.  Requires restart." ),
+        24, 270, 24, COPT_POSIX_CURSES_HIDE
+        );
 
-    OPTIONS["PIXEL_MINIMAP"] = cOpt("graphics", _("Pixel Minimap"),
-                                _("If true, shows the pixel-detail minimap in game after the save is loaded. Use the 'Toggle Pixel Minimap' action key to change its visibility during gameplay."),
-                                true, COPT_CURSES_HIDE
-                               );
+    mOptionsSort["graphics"]++;
 
-    OPTIONS["PIXEL_MINIMAP_HEIGHT"] = cOpt("graphics", _("Pixel Minimap height"),
-                                _("Height of pixel-detail minimap, measured in terminal rows. Set to 0 for default spacing."),
-                                0, 100, 0, COPT_CURSES_HIDE
-                               );
+    add( "USE_TILES", "graphics", translate_marker( "Use tiles" ),
+        translate_marker( "If true, replaces some TTF rendered text with tiles." ),
+        true, COPT_CURSES_HIDE
+        );
 
-    OPTIONS["PIXEL_MINIMAP_RATIO"] = cOpt("graphics", _("Maintain Pixel Minimap aspect ratio"),
-                                          _("Preserves the square shape of tiles shown on the pixel minimap."),
-                                          true, COPT_CURSES_HIDE
-                                          );
+    add( "TILES", "graphics", translate_marker( "Choose tileset" ),
+        translate_marker( "Choose the tileset you want to use." ),
+        build_tilesets_list(), "ChestHole", COPT_CURSES_HIDE
+        ); // populate the options dynamically
 
-    OPTIONS["PIXEL_MINIMAP_BLINK"] = cOpt("graphics", _("Enemy beacon blink speed"),
-                                          _("Controls how fast the enemy beacons blink on the pixel minimap. Value is multiplied by 200 ms. Set to 0 to disable."),
-                                          0, 50, 10, COPT_CURSES_HIDE
-                                          );
+    add( "PIXEL_MINIMAP", "graphics", translate_marker( "Pixel Minimap" ),
+        translate_marker( "If true, shows the pixel-detail minimap in game after the save is loaded.  Use the 'Toggle Pixel Minimap' action key to change its visibility during gameplay." ),
+        true, COPT_CURSES_HIDE
+        );
+
+    add( "PIXEL_MINIMAP_MODE", "graphics", translate_marker( "Pixel Minimap drawing mode" ),
+        translate_marker( "Specified the mode in which the minimap drawn." ), {
+            { "solid", translate_marker( "Solid" ) },
+            { "squares", translate_marker( "Squares" ) },
+            { "dots", translate_marker( "Dots" ) } }, "dots", COPT_CURSES_HIDE
+        );
+
+    add( "PIXEL_MINIMAP_BRIGHTNESS", "graphics", translate_marker( "Pixel Minimap brightness" ),
+        translate_marker( "Overal brightness of pixel-detail minimap." ),
+        10, 300, 100, COPT_CURSES_HIDE
+        );
+
+    add( "PIXEL_MINIMAP_HEIGHT", "graphics", translate_marker( "Pixel Minimap height" ),
+        translate_marker( "Height of pixel-detail minimap, measured in terminal rows.  Set to 0 for default spacing." ),
+        0, 100, 0, COPT_CURSES_HIDE
+        );
+
+    add( "PIXEL_MINIMAP_RATIO", "graphics", translate_marker( "Maintain Pixel Minimap aspect ratio" ),
+        translate_marker( "Preserves the square shape of tiles shown on the pixel minimap." ),
+        true, COPT_CURSES_HIDE
+        );
+
+    add( "PIXEL_MINIMAP_BLINK", "graphics", translate_marker( "Enemy beacon blink speed" ),
+        translate_marker( "Controls how fast the enemy beacons blink on the pixel minimap.  Value is multiplied by 200 ms.  Set to 0 to disable." ),
+        0, 50, 10, COPT_CURSES_HIDE
+        );
 
     mOptionsSort["graphics"]++;
 
 
-    OPTIONS["DISPLAY"] = cOpt("graphics", _("Display"),
-                              _("Sets which video display will be used to show the game. Requires restart."),
-                              0, 10000, 0, COPT_CURSES_HIDE
-                              );
+    add( "DISPLAY", "graphics", translate_marker( "Display" ),
+        translate_marker( "Sets which video display will be used to show the game.  Requires restart." ),
+        0, 10000, 0, COPT_CURSES_HIDE
+        );
 
-    optionNames["fullscreen"] = _("Fullscreen");
-    optionNames["windowedbl"] = _("Windowed borderless");
-    OPTIONS["FULLSCREEN"] = cOpt("graphics", _("Fullscreen"),
-                                 _("Starts Cataclysm in one of the fullscreen modes. Requires restart."),
-                                 "no,fullscreen,windowedbl", "no", COPT_CURSES_HIDE
-                                );
+    add( "FULLSCREEN", "graphics", translate_marker( "Fullscreen" ),
+        translate_marker( "Starts Cataclysm in one of the fullscreen modes.  Requires restart." ),
+        { { "no", translate_marker( "No" ) }, { "fullscreen", translate_marker( "Fullscreen" ) }, { "windowedbl", translate_marker( "Windowed borderless" ) } }, "no", COPT_CURSES_HIDE
+        );
 
-    OPTIONS["SOFTWARE_RENDERING"] = cOpt("graphics", _("Software rendering"),
-                                         _("Use software renderer instead of graphics card acceleration."),
-                                         false, COPT_CURSES_HIDE
-                                        );
+    add( "SOFTWARE_RENDERING", "graphics", translate_marker( "Software rendering" ),
+        translate_marker( "Use software renderer instead of graphics card acceleration.  Requires restart." ),
+        false, COPT_CURSES_HIDE
+        );
 
-    //~ Do not scale the game image to the window size.
-    optionNames["none"] = _("No scaling");
-    //~ An algorithm for image scaling.
-    optionNames["nearest"] = _("Nearest neighbor");
-    //~ An algorithm for image scaling.
-    optionNames["linear"] = _("Linear filtering");
-    OPTIONS["SCALING_MODE"] = cOpt("graphics", _("Scaling mode"),
-                                   _("Sets the scaling mode, 'none' (default) displays at the game's native resolution, 'nearest'  uses low-quality but fast scaling, and 'linear' provides high-quality scaling."),
-                                   "none,nearest,linear", "none", COPT_CURSES_HIDE
-                                  );
+    add( "FRAMEBUFFER_ACCEL", "graphics", translate_marker( "Software framebuffer acceleration" ),
+        translate_marker( "Use hardware acceleration for the framebuffer when using software rendering.  Requires restart." ),
+        false, COPT_CURSES_HIDE
+        );
+
+    add( "SCALING_MODE", "graphics", translate_marker( "Scaling mode" ),
+        translate_marker( "Sets the scaling mode, 'none' ( default ) displays at the game's native resolution, 'nearest'  uses low-quality but fast scaling, and 'linear' provides high-quality scaling." ),
+        //~ Do not scale the game image to the window size.
+        { { "none", translate_marker( "No scaling" ) },
+        //~ An algorithm for image scaling.
+          { "nearest", translate_marker( "Nearest neighbor" ) },
+        //~ An algorithm for image scaling.
+          { "linear", translate_marker( "Linear filtering" ) } },
+        "none", COPT_CURSES_HIDE );
 
     ////////////////////////////DEBUG////////////////////////////
-    OPTIONS["DISTANCE_INITIAL_VISIBILITY"] = cOpt("debug", _("Distance initial visibility"),
-                                                  _("Determines the scope, which is known in the beginning of the game."),
-                                                  3, 20, 15
-                                                 );
+    add( "DISTANCE_INITIAL_VISIBILITY", "debug", translate_marker( "Distance initial visibility" ),
+        translate_marker( "Determines the scope, which is known in the beginning of the game." ),
+        3, 20, 15
+        );
 
     mOptionsSort["debug"]++;
 
-    OPTIONS["INITIAL_STAT_POINTS"] = cOpt("debug", _("Initial stat points"),
-                                          _("Initial points available to spend on stats on character generation."),
-                                          0, 1000, 2
-                                         );
+    add( "INITIAL_STAT_POINTS", "debug", translate_marker( "Initial stat points" ),
+        translate_marker( "Initial points available to spend on stats on character generation." ),
+        0, 1000, 6
+        );
 
-    OPTIONS["INITIAL_TRAIT_POINTS"] = cOpt("debug", _("Initial trait points"),
-                                           _("Initial points available to spend on traits on character generation."),
-                                           0, 1000, 2
-                                          );
+    add( "INITIAL_TRAIT_POINTS", "debug", translate_marker( "Initial trait points" ),
+        translate_marker( "Initial points available to spend on traits on character generation." ),
+        0, 1000, 0
+        );
 
-    OPTIONS["INITIAL_SKILL_POINTS"] = cOpt("debug", _("Initial skill points"),
-                                           _("Initial points available to spend on skills on character generation."),
-                                           0, 1000, 2
-                                           );
+    add( "INITIAL_SKILL_POINTS", "debug", translate_marker( "Initial skill points" ),
+        translate_marker( "Initial points available to spend on skills on character generation." ),
+        0, 1000, 2
+        );
 
-    OPTIONS["MAX_TRAIT_POINTS"] = cOpt("debug", _("Maximum trait points"),
-                                       _("Maximum trait points available for character generation."),
-                                       0, 1000, 12
-                                      );
-
-    mOptionsSort["debug"]++;
-
-    OPTIONS["SKILL_TRAINING_SPEED"] = cOpt("debug", _("Skill training speed"),
-                                           _("Scales experience gained from practicing skills and reading books. 0.5 is half as fast as default, 2.0 is twice as fast, 0.0 disables skill training except for NPC training."),
-                                           0.0, 100.0, 1.0, 0.1
-                                          );
+    add( "MAX_TRAIT_POINTS", "debug", translate_marker( "Maximum trait points" ),
+            translate_marker( "Maximum trait points available for character generation." ),
+            0, 1000, 12
+            );
 
     mOptionsSort["debug"]++;
 
-    //~ plain, default, normal
-    optionNames["vanilla"] = _("Vanilla");
-    //~ capped at a value
-    optionNames["capped"] = _("Capped");
-    //~ based on intelligence
-    optionNames["int"] = _("Int");
-    //~ based on intelligence and capped
-    optionNames["intcap"] = _("IntCap");
-    optionNames["off"] = _("Off");
-    OPTIONS["SKILL_RUST"] = cOpt("debug", _("Skill rust"),
-                                 _("Set the level of skill rust. Vanilla: Vanilla Cataclysm - Capped: Capped at skill levels 2 - Int: Intelligence dependent - IntCap: Intelligence dependent, capped - Off: None at all."),
-                                 "vanilla,capped,int,intcap,off", "int"
-                                );
-
+    add( "SKILL_TRAINING_SPEED", "debug", translate_marker( "Skill training speed" ),
+        translate_marker( "Scales experience gained from practicing skills and reading books.  0.5 is half as fast as default, 2.0 is twice as fast, 0.0 disables skill training except for NPC training." ),
+        0.0, 100.0, 1.0, 0.1
+        );
 
     mOptionsSort["debug"]++;
 
-    OPTIONS["FOV_3D"] = cOpt("debug", _("Experimental 3D Field of Vision"),
-                                 _("If false, vision is limited to current z-level. If true and the world is in z-level mode, the vision will extend beyond current z-level. Currently very bugged!"),
-                                 false
-                                );
+    add( "SKILL_RUST", "debug", translate_marker( "Skill rust" ),
+        translate_marker( "Set the level of skill rust.  Vanilla: Vanilla Cataclysm - Capped: Capped at skill levels 2 - Int: Intelligence dependent - IntCap: Intelligence dependent, capped - Off: None at all." ),
+        //~ plain, default, normal
+        { { "vanilla", translate_marker( "Vanilla" ) },
+        //~ capped at a value
+          { "capped", translate_marker( "Capped" ) },
+        //~ based on intelligence
+          { "int", translate_marker( "Int" ) },
+        //~ based on intelligence and capped
+          { "intcap", translate_marker( "IntCap" ) },
+          { "off", translate_marker( "Off" ) } },
+        "off" );
+
+    mOptionsSort["debug"]++;
+
+    add( "FOV_3D", "debug", translate_marker( "Experimental 3D Field of Vision" ),
+        translate_marker( "If false, vision is limited to current z-level.  If true and the world is in z-level mode, the vision will extend beyond current z-level.  Currently very bugged!" ),
+        false
+        );
+
+    add( "ENCODING_CONV", "debug", translate_marker( "Experimental path name encoding conversion" ),
+        translate_marker( "If true, file path names are going to be transcoded from system encoding to UTF-8 when reading and will be transcoded back when writing.  Mainly for CJK Windows users." ),
+        true
+        );
 
     ////////////////////////////WORLD DEFAULT////////////////////
-    optionNames["no"] = _("No");
-    optionNames["yes"] = _("Yes");
-    optionNames["query"] = _("Query");
-    OPTIONS["DELETE_WORLD"] = cOpt("world_default", _("Delete world"),
-                                   _("Delete the world when the last active character dies."),
-                                   "no,yes,query", "no"
-                                  );
+    add( "CORE_VERSION", "world_default", translate_marker( "Core version data" ),
+        translate_marker( "Controls what migrations are applied for legacy worlds" ),
+        1, core_version, core_version, COPT_ALWAYS_HIDE
+        );
 
     mOptionsSort["world_default"]++;
 
-    OPTIONS["CITY_SIZE"] = cOpt("world_default", _("Size of cities"),
-                                _("A number determining how large cities are. 0 disables cities and roads."),
-                                0, 16, 4
-                               );
-
-    OPTIONS["CITY_SPACING"] = cOpt("world_default", _("City spacing"),
-                                _("A number determining how far apart cities are. Warning, small numbers lead to very slow mapgen."),
-                                0, 8, 4
-                               );
-
-    OPTIONS["SPAWN_DENSITY"] = cOpt("world_default", _("Spawn rate scaling factor"),
-                                    _("A scaling factor that determines density of monster spawns."),
-                                    0.0, 50.0, 1.0, 0.1
-                                   );
-
-    OPTIONS["ITEM_SPAWNRATE"] = cOpt("world_default", _("Item spawn scaling factor"),
-                                     _("A scaling factor that determines density of item spawns."),
-                                     0.01, 10.0, 1.0, 0.01
-                                    );
-
-    OPTIONS["NPC_DENSITY"] = cOpt("world_default", _("NPC spawn rate scaling factor"),
-                                  _("A scaling factor that determines density of dynamic NPC spawns."),
-                                  0.0, 100.0, 1.0, 0.01
-                                 );
-    OPTIONS["MONSTER_UPGRADE_FACTOR"] = cOpt("world_default", _("Monster evolution scaling factor"),
-                                             _("A scaling factor that determines the time between monster upgrades. A higher number means slower evolution. Set to 0.00 to turn off monster upgrades."),
-                                             0.0, 100, 4.0, 0.01
-                                            );
+    add( "DELETE_WORLD", "world_default", translate_marker( "Delete world" ),
+        translate_marker( "Delete the world when the last active character dies." ),
+        { { "no", translate_marker( "No" ) }, { "yes", translate_marker( "Yes" ) }, { "query", translate_marker( "Query" ) } }, "no"
+        );
 
     mOptionsSort["world_default"]++;
 
-    std::string region_ids("default");
-    optionNames["default"] = "default";
-    OPTIONS["DEFAULT_REGION"] = cOpt("world_default", _("Default region type"),
-                                     _("(WIP feature) Determines terrain, shops, plants, and more."),
-                                     region_ids, "default"
-                                    );
+    add( "CITY_SIZE", "world_default", translate_marker( "Size of cities" ),
+        translate_marker( "A number determining how large cities are.  0 disables cities and roads." ),
+        0, 16, 4
+        );
+
+    add( "CITY_SPACING", "world_default", translate_marker( "City spacing" ),
+        translate_marker( "A number determining how far apart cities are.  Warning, small numbers lead to very slow mapgen." ),
+        0, 8, 4
+        );
+
+    add( "SPAWN_DENSITY", "world_default", translate_marker( "Spawn rate scaling factor" ),
+        translate_marker( "A scaling factor that determines density of monster spawns." ),
+        0.0, 50.0, 1.0, 0.1
+        );
+
+    add( "ITEM_SPAWNRATE", "world_default", translate_marker( "Item spawn scaling factor" ),
+        translate_marker( "A scaling factor that determines density of item spawns." ),
+        0.01, 10.0, 1.0, 0.01
+        );
+
+    add( "NPC_DENSITY", "world_default", translate_marker( "NPC spawn rate scaling factor" ),
+        translate_marker( "A scaling factor that determines density of dynamic NPC spawns." ),
+        0.0, 100.0, 0.1, 0.01
+        );
+
+    add( "MONSTER_UPGRADE_FACTOR", "world_default", translate_marker( "Monster evolution scaling factor" ),
+        translate_marker( "A scaling factor that determines the time between monster upgrades.  A higher number means slower evolution.  Set to 0.00 to turn off monster upgrades." ),
+        0.0, 100, 4.0, 0.01
+        );
 
     mOptionsSort["world_default"]++;
 
-    OPTIONS["INITIAL_TIME"] = cOpt("world_default", _("Initial time"),
-                                   _("Initial starting time of day on character generation."),
-                                   0, 23, 8
-                                  );
+    add( "MONSTER_SPEED", "world_default", translate_marker( "Monster speed" ),
+        translate_marker( "Determines the movement rate of monsters.  A higher value increases monster speed and a lower reduces it." ),
+        1, 1000, 100, COPT_NO_HIDE, "%i%%"
+        );
 
-    optionNames["spring"] = _("Spring");
-    optionNames["summer"] = _("Summer");
-    optionNames["autumn"] = _("Autumn");
-    optionNames["winter"] = _("Winter");
-    OPTIONS["INITIAL_SEASON"] = cOpt("world_default", _("Initial season"),
-                                     _("Season the player starts in. Options other than the default delay spawn of the character, so food decay and monster spawns will have advanced."),
-                                     "spring,summer,autumn,winter", "spring"
-                                    );
-
-    OPTIONS["SEASON_LENGTH"] = cOpt("world_default", _("Season length"),
-                                    _("Season length, in days."),
-                                    14, 127, 14
-                                   );
-
-    OPTIONS["CONSTRUCTION_SCALING"] = cOpt("world_default", _("Construction scaling"),
-                                           _("Multiplies the speed of construction by the given percentage. '0' automatically scales construction to match the world's season length."),
-                                           0, 1000, 100
-                                          );
-
-    OPTIONS["ETERNAL_SEASON"] = cOpt("world_default", _("Eternal season"),
-                                     _("Keep the initial season for ever."),
-                                     false
-                                    );
+    add( "MONSTER_RESILIENCE", "world_default", translate_marker( "Monster resilience" ),
+        translate_marker( "Determines how much damage monsters can take.  A higher value makes monsters more resilient and a lower makes them more flimsy." ),
+        1, 1000, 100, COPT_NO_HIDE, "%i%%"
+        );
 
     mOptionsSort["world_default"]++;
 
-    OPTIONS["STATIC_SPAWN"] = cOpt("world_default", _("Static spawn"),
-                                   _("Spawn zombies at game start instead of during game. Must reset world directory after changing for it to take effect."),
-                                   true
-                                  );
-
-    OPTIONS["WANDER_SPAWNS"] = cOpt("world_default", _("Wander spawns"),
-                                    _("Emulation of zombie hordes. Zombie spawn points wander around cities and may go to noise. Must reset world directory after changing for it to take effect."),
-                                    false
-                                   );
-
-    OPTIONS["CLASSIC_ZOMBIES"] = cOpt("world_default", _("Classic zombies"),
-                                      _("Only spawn classic zombies and natural wildlife. Requires a reset of save folder to take effect. This disables certain buildings."),
-                                      false
-                                     );
-
-    OPTIONS["BLACK_ROAD"] = cOpt("world_default", _("Surrounded start"),
-                                 _("If true, spawn zombies at shelters. Makes the starting game a lot harder."),
-                                 false
-                                );
+    add( "DEFAULT_REGION", "world_default", translate_marker( "Default region type" ),
+        translate_marker( "( WIP feature ) Determines terrain, shops, plants, and more." ),
+        { { "default", "default" } }, "default"
+        );
 
     mOptionsSort["world_default"]++;
 
-    OPTIONS["STATIC_NPC"] = cOpt("world_default", _("Static npcs"),
-                                 _("If true, the game will spawn static NPC at the start of the game, requires world reset."),
-                                 false
-                                );
+    add( "INITIAL_TIME", "world_default", translate_marker( "Initial time" ),
+        translate_marker( "Initial starting time of day on character generation." ),
+        0, 23, 8
+        );
 
-    OPTIONS["RANDOM_NPC"] = cOpt("world_default", _("Random npcs"),
-                                 _("If true, the game will randomly spawn NPC during gameplay."),
-                                 false
-                                );
+    add( "INITIAL_SEASON", "world_default", translate_marker( "Initial season" ),
+        translate_marker( "Season the player starts in.  Options other than the default delay spawn of the character, so food decay and monster spawns will have advanced." ),
+        { { "spring", translate_marker( "Spring" ) }, { "summer", translate_marker( "Summer" ) }, { "autumn", translate_marker( "Autumn" ) }, { "winter", translate_marker( "Winter" ) } }, "spring"
+        );
 
-    mOptionsSort["world_default"]++;
+    add( "SEASON_LENGTH", "world_default", translate_marker( "Season length" ),
+        translate_marker( "Season length, in days." ),
+        14, 127, 14
+        );
 
-    OPTIONS["RAD_MUTATION"] = cOpt("world_default", _("Mutations by radiation"),
-                                   _("If true, radiation causes the player to mutate."),
-                                   true
-                                  );
+    add( "CONSTRUCTION_SCALING", "world_default", translate_marker( "Construction scaling" ),
+        translate_marker( "Sets the time of construction in percents.  '50' is two times faster than default, '200' is two times longer.  '0' automatically scales construction time to match the world's season length." ),
+        0, 1000, 100
+        );
 
-    mOptionsSort["world_default"]++;
-
-    OPTIONS["ZLEVELS"] = cOpt("world_default", _("Experimental z-levels"),
-                              _("If true, experimental z-level maps will be enabled. This feature is not finished yet and turning it on will only slow the game down."),
-                              false
-                             );
-
-    mOptionsSort["world_default"]++;
-
-    OPTIONS["NO_FAULTS"] = cOpt("world_default", _("Disables vehicle part faults."),
-                              _("If true, disables vehicle part faults, vehicle parts will be totally reliable unless destroyed, and can only be repaired via replacement."),
-                                false, COPT_ALWAYS_HIDE
-                             );
+    add( "ETERNAL_SEASON", "world_default", translate_marker( "Eternal season" ),
+        translate_marker( "Keep the initial season for ever." ),
+        false
+        );
 
     mOptionsSort["world_default"]++;
 
-    OPTIONS["BLACKLIST_MAGAZINES"] = cOpt("world_default", _("Disables removable gun magaziones."),
-                              _("If true, disables removeable gun magazines, guns will all act as if they have integral magazines."),
-                                false, COPT_ALWAYS_HIDE
-                             );
+    add( "WANDER_SPAWNS", "world_default", translate_marker( "Wander spawns" ),
+        translate_marker( "Emulation of zombie hordes.  Zombie spawn points wander around cities and may go to noise.  Must reset world directory after changing for it to take effect." ),
+        false
+        );
+
+    add( "CLASSIC_ZOMBIES", "world_default", translate_marker( "Classic zombies" ),
+        translate_marker( "Only spawn classic zombies and natural wildlife.  Requires a reset of save folder to take effect.  This disables certain buildings." ),
+        false
+        );
+
+    add( "BLACK_ROAD", "world_default", translate_marker( "Surrounded start" ),
+        translate_marker( "If true, spawn zombies at shelters.  Makes the starting game a lot harder." ),
+        false
+        );
 
     mOptionsSort["world_default"]++;
 
-    OPTIONS["NO_VITAMINS"] = cOpt("world_default", _("Disables tracking vitamins in food items."),
-                              _("If true, disables vitamin tracking and vitamin disorders."),
-                                false, COPT_ALWAYS_HIDE
-                             );
+    add( "STATIC_NPC", "world_default", translate_marker( "Static npcs" ),
+        translate_marker( "If true, the game will spawn static NPC at the start of the game, requires world reset." ),
+        false
+        );
 
+    add( "RANDOM_NPC", "world_default", translate_marker( "Random npcs" ),
+        translate_marker( "If true, the game will randomly spawn NPC during gameplay." ),
+        false
+        );
 
+    mOptionsSort["world_default"]++;
+
+    add( "RAD_MUTATION", "world_default", translate_marker( "Mutations by radiation" ),
+        translate_marker( "If true, radiation causes the player to mutate." ),
+        true
+        );
+
+    mOptionsSort["world_default"]++;
+
+    add( "ZLEVELS", "world_default", translate_marker( "Experimental z-levels" ),
+        translate_marker( "If true, experimental z-level maps will be enabled.  This feature is not finished yet and turning it on will only slow the game down." ),
+        false
+        );
+
+    mOptionsSort["world_default"]++;
+
+    add( "ALIGN_STAIRS", "world_default", translate_marker( "Align up and down stairs" ),
+        translate_marker( "If true, downstairs will be placed directly above upstairs, even if this results in uglier maps." ),
+        false
+        );
+
+    mOptionsSort["world_default"]++;
+
+    add( "CHARACTER_POINT_POOLS", "world_default", translate_marker( "Character point pools" ),
+        translate_marker( "Allowed point pools for character generation." ),
+        { { "any", translate_marker( "Any" ) }, { "multi_pool", translate_marker( "Multi-pool only" ) }, { "no_freeform", translate_marker( "No freeform" ) } }, "any"
+        );
+
+    mOptionsSort["world_default"]++;
+
+    add( "NO_FAULTS", "world_default", translate_marker( "Disables vehicle part faults." ),
+        translate_marker( "If true, disables vehicle part faults, vehicle parts will be totally reliable unless destroyed, and can only be repaired via replacement." ),
+        false, COPT_ALWAYS_HIDE
+        );
+
+    mOptionsSort["world_default"]++;
+
+    add( "FILTHY_MORALE", "world_default", translate_marker( "Morale penalty for filthy clothing." ),
+        translate_marker( "If true, wearing filthy clothing will cause morale penalties." ),
+        false, COPT_ALWAYS_HIDE
+        );
+
+    mOptionsSort["world_default"]++;
+
+    add( "FILTHY_WOUNDS", "world_default", translate_marker( "Infected wounds from filthy clothing." ),
+        translate_marker( "If true, getting hit in a body part covered in filthy clothing may cause infections." ),
+        false, COPT_ALWAYS_HIDE
+        );
+
+    mOptionsSort["world_default"]++;
+
+    add( "NO_VITAMINS", "world_default", translate_marker( "Disables tracking vitamins in food items." ),
+        translate_marker( "If true, disables vitamin tracking and vitamin disorders." ),
+        false, COPT_ALWAYS_HIDE
+        );
+
+    mOptionsSort["world_default"]++;
+
+    add( "NO_NPC_FOOD", "world_default", translate_marker( "Disables tracking food, thirst and ( partially ) fatigue for NPCs." ),
+        translate_marker( "If true, NPCs won't need to eat or drink and will only get tired enough to sleep, not to get penalties." ),
+        false, COPT_ALWAYS_HIDE
+        );
 
     for (unsigned i = 0; i < vPages.size(); ++i) {
         mPageItems[i].resize(mOptionsSort[vPages[i].first]);
     }
 
-    for( auto &elem : OPTIONS ) {
+    for( auto &elem : options ) {
         for (unsigned i = 0; i < vPages.size(); ++i) {
             if( vPages[i].first == ( elem.second ).getPage() &&
                 ( elem.second ).getSortPos() > -1 ) {
@@ -1445,9 +1535,11 @@ static void refresh_tiles( bool, bool, bool ) {
 }
 #endif // TILES
 
-void draw_borders_external( WINDOW *w, int horizontal_level, std::map<int, bool> &mapLines )
+void draw_borders_external( WINDOW *w, int horizontal_level, std::map<int, bool> &mapLines, const bool world_options_only )
 {
-    draw_border( w, BORDER_COLOR, _( " OPTIONS " ) );
+    if( !world_options_only ) {
+        draw_border( w, BORDER_COLOR, _( " OPTIONS " ) );
+    }
     // intersections
     mvwputch( w, horizontal_level, 0, BORDER_COLOR, LINE_XXXO ); // |-
     mvwputch( w, horizontal_level, getmaxx( w ) - 1, BORDER_COLOR, LINE_XOXX ); // -|
@@ -1471,37 +1563,54 @@ void draw_borders_internal( WINDOW *w, std::map<int, bool> &mapLines )
     wrefresh( w );
 }
 
-void options_manager::show(bool ingame)
+std::string options_manager::show(bool ingame, const bool world_options_only)
 {
+    // temporary alias so the code below does not need to be changed
+    options_container &OPTIONS = options;
+    options_container &ACTIVE_WORLD_OPTIONS = world_generator->active_world ? world_generator->active_world->WORLD_OPTIONS :
+                                                ( world_options_only ? *world_options : OPTIONS );
+
     auto OPTIONS_OLD = OPTIONS;
     auto WOPTIONS_OLD = ACTIVE_WORLD_OPTIONS;
     if ( world_generator->active_world == NULL ) {
         ingame = false;
     }
 
-    const int iTooltipHeight = 4;
-    const int iContentHeight = FULL_SCREEN_HEIGHT - 3 - iTooltipHeight;
+    const int iWorldOffset = ( world_options_only ? 2 : 0 );
 
-    const int iOffsetX = (TERMX > FULL_SCREEN_WIDTH) ? (TERMX - FULL_SCREEN_WIDTH) / 2 : 0;
-    const int iOffsetY = (TERMY > FULL_SCREEN_HEIGHT) ? (TERMY - FULL_SCREEN_HEIGHT) / 2 : 0;
+    const int iTooltipHeight = 4;
+    const int iContentHeight = FULL_SCREEN_HEIGHT - 3 - iTooltipHeight - iWorldOffset;
+
+    const int iOffsetX = TERMX > FULL_SCREEN_WIDTH ? (TERMX - FULL_SCREEN_WIDTH) / 2 : 0;
+    const int iOffsetY = ( TERMY > FULL_SCREEN_HEIGHT ? (TERMY - FULL_SCREEN_HEIGHT) / 2 : 0 ) + iWorldOffset;
 
     std::map<int, bool> mapLines;
     mapLines[4] = true;
     mapLines[60] = true;
 
-    WINDOW *w_options_border = newwin(FULL_SCREEN_HEIGHT, FULL_SCREEN_WIDTH, iOffsetY, iOffsetX);
+    WINDOW *w_options_border = newwin(FULL_SCREEN_HEIGHT, FULL_SCREEN_WIDTH, iOffsetY - iWorldOffset, iOffsetX);
+    WINDOW_PTR w_options_borderptr( w_options_border );
 
     WINDOW *w_options_tooltip = newwin(iTooltipHeight, FULL_SCREEN_WIDTH - 2, 1 + iOffsetY,
                                        1 + iOffsetX);
+    WINDOW_PTR w_options_tooltipptr( w_options_tooltip );
+
     WINDOW *w_options_header = newwin(1, FULL_SCREEN_WIDTH - 2, 1 + iTooltipHeight + iOffsetY,
                                       1 + iOffsetX);
+    WINDOW_PTR w_options_headerptr( w_options_header );
+
     WINDOW *w_options = newwin(iContentHeight, FULL_SCREEN_WIDTH - 2,
                                iTooltipHeight + 2 + iOffsetY, 1 + iOffsetX);
+    WINDOW_PTR w_optionsptr( w_options );
 
-    draw_borders_external( w_options_border, iTooltipHeight + 1, mapLines );
+    if( world_options_only ) {
+        worldfactory::draw_worldgen_tabs(w_options_border, 1);
+    }
+
+    draw_borders_external( w_options_border, iTooltipHeight + 1 + iWorldOffset, mapLines, world_options_only );
     draw_borders_internal( w_options_header, mapLines );
 
-    int iCurrentPage = 0;
+    int iCurrentPage = world_options_only ? iWorldOptPage : 0;
     int iLastPage = 0;
     int iCurrentLine = 0;
     int iStartPos = 0;
@@ -1517,7 +1626,7 @@ void options_manager::show(bool ingame)
     std::stringstream sTemp;
 
     while(true) {
-        auto &cOPTIONS = ( ingame && iCurrentPage == iWorldOptPage ?
+        auto &cOPTIONS = ( ( ingame || world_options_only ) && iCurrentPage == iWorldOptPage ?
                            ACTIVE_WORLD_OPTIONS : OPTIONS );
 
         //Clear the lines
@@ -1577,20 +1686,23 @@ void options_manager::show(bool ingame)
         }
 
         draw_scrollbar(w_options_border, iCurrentLine, iContentHeight,
-                       mPageItems[iCurrentPage].size(), iTooltipHeight + 2, 0, BORDER_COLOR);
+                       mPageItems[iCurrentPage].size(), iTooltipHeight + 2 + iWorldOffset, 0, BORDER_COLOR);
         wrefresh(w_options_border);
 
         //Draw Tabs
-        mvwprintz(w_options_header, 0, 7, c_white, "");
-        for (int i = 0; i < (int)vPages.size(); i++) {
-            if (!mPageItems[i].empty()) { //skip empty pages
+        if( !world_options_only ) {
+            mvwprintz(w_options_header, 0, 7, c_white, "");
+            for (int i = 0; i < (int)vPages.size(); i++) {
+                if( mPageItems[i].empty() ) {
+                    continue;
+                }
                 wprintz(w_options_header, c_white, "[");
                 if ( ingame && i == iWorldOptPage ) {
                     wprintz(w_options_header,
                             (iCurrentPage == i) ? hilite(c_ltgreen) : c_ltgreen, _("Current world"));
                 } else {
                     wprintz(w_options_header, (iCurrentPage == i) ?
-                            hilite(c_ltgreen) : c_ltgreen, (vPages[i].second).c_str());
+                            hilite( c_ltgreen ) : c_ltgreen, "%s", _( vPages[i].second.c_str() ) );
                 }
                 wprintz(w_options_header, c_white, "]");
                 wputch(w_options_header, BORDER_COLOR, LINE_OXOX);
@@ -1650,6 +1762,10 @@ void options_manager::show(bool ingame)
 
         const std::string action = ctxt.handle_input();
 
+        if( world_options_only && ( action == "NEXT_TAB" || action == "PREV_TAB" || action == "QUIT" ) ) {
+            return action;
+        }
+
         if (action == "DOWN") {
             do {
                 iCurrentLine++;
@@ -1676,6 +1792,7 @@ void options_manager::show(bool ingame)
             if (iCurrentPage >= (int)vPages.size()) {
                 iCurrentPage = 0;
             }
+            sfx::play_variant_sound( "menu_move", "default", 100 );
         } else if (action == "PREV_TAB") {
             iCurrentLine = 0;
             iStartPos = 0;
@@ -1683,6 +1800,7 @@ void options_manager::show(bool ingame)
             if (iCurrentPage < 0) {
                 iCurrentPage = vPages.size() - 1;
             }
+            sfx::play_variant_sound( "menu_move", "default", 100 );
         } else if (!mPageItems[iCurrentPage].empty() && action == "CONFIRM") {
             cOpt &cur_opt = cOPTIONS[mPageItems[iCurrentPage][iCurrentLine]];
             if (cur_opt.getType() == "bool" || cur_opt.getType() == "string_select" || cur_opt.getType() == "string_input" ) {
@@ -1691,12 +1809,15 @@ void options_manager::show(bool ingame)
                 const bool is_int = cur_opt.getType() == "int";
                 const bool is_float = cur_opt.getType() == "float";
                 const std::string old_opt_val = cur_opt.getValueName();
-                const std::string opt_val = string_input_popup(
-                                                cur_opt.getMenuText(), 80, old_opt_val, "", "", -1, is_int);
+                const std::string opt_val = string_input_popup()
+                                            .title( cur_opt.getMenuText() )
+                                            .width( 10 )
+                                            .text( old_opt_val )
+                                            .only_digits( is_int )
+                                            .query_string();
                 if (!opt_val.empty() && opt_val != old_opt_val) {
                     if (is_float) {
                         std::istringstream ssTemp(opt_val);
-                        ssTemp.imbue(std::locale(""));
                         // This uses the current locale, to allow the users
                         // to use their own decimal format.
                         float tmpFloat;
@@ -1728,18 +1849,20 @@ void options_manager::show(bool ingame)
     bool world_options_changed = false;
     bool lang_changed = false;
     bool used_tiles_changed = false;
-    bool pixel_minimap_height_changed = false;
+    bool pixel_minimap_changed = false;
 
     for (auto &iter : OPTIONS_OLD) {
-        if ( iter.second.getValue() != OPTIONS[iter.first].getValue() ) {
+        if ( iter.second != OPTIONS[iter.first] ) {
             options_changed = true;
 
             if ( iter.second.getPage() == "world_default" ) {
                 world_options_changed = true;
             }
 
-            if ( iter.first == "PIXEL_MINIMAP_HEIGHT" || iter.first == "PIXEL_MINIMAP_RATIO" ) {
-                pixel_minimap_height_changed = true;
+            if ( iter.first == "PIXEL_MINIMAP_HEIGHT"
+              || iter.first == "PIXEL_MINIMAP_RATIO"
+              || iter.first == "PIXEL_MINIMAP_MODE" ) {
+                pixel_minimap_changed = true;
             }
 
             if ( iter.first == "TILES" || iter.first == "USE_TILES" ) {
@@ -1751,7 +1874,7 @@ void options_manager::show(bool ingame)
         }
     }
     for( auto &iter : WOPTIONS_OLD ) {
-        if( iter.second.getValue() != ACTIVE_WORLD_OPTIONS[iter.first].getValue() ) {
+        if( iter.second != ACTIVE_WORLD_OPTIONS[iter.first] ) {
             options_changed = true;
             world_options_changed = true;
         }
@@ -1773,33 +1896,36 @@ void options_manager::show(bool ingame)
         }
     }
     if( lang_changed ) {
-        set_language(false);
-        g->mmenu_refresh_title();
-        g->mmenu_refresh_motd();
-        g->mmenu_refresh_credits();
+        set_language();
     }
 
-    refresh_tiles( used_tiles_changed, pixel_minimap_height_changed, ingame );
+    refresh_tiles( used_tiles_changed, pixel_minimap_changed, ingame );
 
-    delwin(w_options);
-    delwin(w_options_border);
-    delwin(w_options_header);
-    delwin(w_options_tooltip);
+    return "";
 }
 
 void options_manager::serialize(JsonOut &json) const
 {
     json.start_array();
 
+    // @todo mPageItems is const here, so we can not use its operator[], therefor the copy
+    auto mPageItems = this->mPageItems;
     for( size_t j = 0; j < vPages.size(); ++j ) {
         for( auto &elem : mPageItems[j] ) {
-            if( OPTIONS[elem].getDefaultText() != "" ) {
+            // Skip blanks between option groups
+            // to avoid empty json entries being stored
+            if( elem.empty() ) {
+                continue;
+            }
+            const auto iter = options.find( elem );
+            if( iter != options.end() ) {
+                const auto &opt = iter->second;
                 json.start_object();
 
-                json.member( "info", OPTIONS[elem].getTooltip() );
-                json.member( "default", OPTIONS[elem].getDefaultText( false ) );
+                json.member( "info", opt.getTooltip() );
+                json.member( "default", opt.getDefaultText( false ) );
                 json.member( "name", elem );
-                json.member( "value", OPTIONS[elem].getValue() );
+                json.member( "value", opt.getValue( true ) );
 
                 json.end_object();
             }
@@ -1818,8 +1944,8 @@ void options_manager::deserialize(JsonIn &jsin)
         const std::string name = joOptions.get_string("name");
         const std::string value = joOptions.get_string("value");
 
-        optionsdata.add_retry(name, value);
-        OPTIONS[ name ].setValue( value );
+        add_retry(name, value);
+        options[ name ].setValue( value );
     }
 }
 
@@ -1827,11 +1953,14 @@ bool options_manager::save()
 {
     const auto savefile = FILENAMES["options"];
 
-    trigdist = OPTIONS["CIRCLEDIST"]; // update trigdist as well
-    use_tiles = OPTIONS["USE_TILES"]; // and use_tiles
-    log_from_top = OPTIONS["SIDEBAR_LOG_FLOW"] == "new_top"; // cache to global due to heavy usage.
-    message_ttl = OPTIONS["MESSAGE_TTL"]; // cache to global due to heavy usage.
-    fov_3d = OPTIONS["FOV_3D"];
+    // cache to global due to heavy usage.
+    trigdist = ::get_option<bool>( "CIRCLEDIST" );
+    use_tiles = ::get_option<bool>( "USE_TILES" );
+    log_from_top = ::get_option<std::string>( "LOG_FLOW" ) == "new_top";
+    message_ttl = ::get_option<int>( "MESSAGE_TTL" );
+    fov_3d = ::get_option<bool>( "FOV_3D" );
+
+    update_music_volume();
 
     return write_to_file( savefile, [&]( std::ostream &fout ) {
         JsonOut jout( fout, true );
@@ -1843,69 +1972,92 @@ void options_manager::load()
 {
     const auto file = FILENAMES["options"];
 
-    std::ifstream fin;
-    fin.open(file.c_str(), std::ifstream::in | std::ifstream::binary);
-    if( !fin.good() ) {
+    if( !read_from_file_optional( file, *this ) ) {
         if (load_legacy()) {
             if (save()) {
                 remove_file(FILENAMES["legacy_options"]);
                 remove_file(FILENAMES["legacy_options2"]);
             }
         }
-
-    } else {
-        try {
-            JsonIn jsin(fin);
-            deserialize(jsin);
-        } catch( const JsonError &e ) {
-            DebugLog(D_ERROR, DC_ALL) << "options_manager::load: " << e;
-        }
     }
 
-    fin.close();
-
-    trigdist = OPTIONS["CIRCLEDIST"]; // cache to global due to heavy usage.
-    use_tiles = OPTIONS["USE_TILES"]; // cache to global due to heavy usage.
-    log_from_top = OPTIONS["SIDEBAR_LOG_FLOW"] == "new_top"; // cache to global due to heavy usage.
-    message_ttl = OPTIONS["MESSAGE_TTL"]; // cache to global due to heavy usage.
-    fov_3d = OPTIONS["FOV_3D"];
+    // cache to global due to heavy usage.
+    trigdist = ::get_option<bool>( "CIRCLEDIST" );
+    use_tiles = ::get_option<bool>( "USE_TILES" );
+    log_from_top = ::get_option<std::string>( "LOG_FLOW" ) == "new_top";
+    message_ttl = ::get_option<int>( "MESSAGE_TTL" );
+    fov_3d = ::get_option<bool>( "FOV_3D" );
 }
 
 bool options_manager::load_legacy()
 {
-    std::ifstream fin;
-    // Try at the legacy location.
-    fin.open(FILENAMES["legacy_options"].c_str());
-    if(!fin.is_open()) {
-        // Try at the legacy location 2.
-        fin.open(FILENAMES["legacy_options2"].c_str());
-        if(!fin.is_open()) {
-            //No legacy txt options found, load json options
-            return false;
+    const auto reader = [&]( std::istream &fin ) {
+        std::string sLine;
+        while(!fin.eof()) {
+            getline(fin, sLine);
+
+            if(sLine != "" && sLine[0] != '#' && std::count(sLine.begin(), sLine.end(), ' ') == 1) {
+                int iPos = sLine.find(' ');
+                const std::string loadedvar = sLine.substr(0, iPos);
+                const std::string loadedval = sLine.substr(iPos + 1, sLine.length());
+                // option with values from post init() might get clobbered
+                add_retry(loadedvar, loadedval); // stash it until update();
+
+                options[ loadedvar ].setValue( loadedval );
+            }
         }
-    }
+    };
 
-    std::string sLine;
-    while(!fin.eof()) {
-        getline(fin, sLine);
-
-        if(sLine != "" && sLine[0] != '#' && std::count(sLine.begin(), sLine.end(), ' ') == 1) {
-            int iPos = sLine.find(' ');
-            const std::string loadedvar = sLine.substr(0, iPos);
-            const std::string loadedval = sLine.substr(iPos + 1, sLine.length());
-            // option with values from post init() might get clobbered
-            optionsdata.add_retry(loadedvar, loadedval); // stash it until update();
-
-            OPTIONS[ loadedvar ].setValue( loadedval );
-        }
-    }
-
-    fin.close();
-
-    return true;
+    return read_from_file_optional( FILENAMES["legacy_options"], reader ) ||
+           read_from_file_optional( FILENAMES["legacy_options2"], reader );
 }
 
 bool use_narrow_sidebar()
 {
     return TERMY < 25 || g->narrow_sidebar;
+}
+
+bool options_manager::has_option( const std::string &name ) const
+{
+    return options.count( name );
+}
+
+options_manager::cOpt &options_manager::get_option( const std::string &name )
+{
+    if( options.count( name ) == 0 ) {
+        debugmsg( "requested non-existing option %s", name.c_str() );
+    }
+    if( !world_generator || !world_generator->active_world ) {
+        // Global options contains the default for new worlds, which is good enough here.
+        return options[name];
+    }
+    auto &wopts = world_generator->active_world->WORLD_OPTIONS;
+    if( wopts.count( name ) == 0 ) {
+        auto &opt = options[name];
+        if( opt.getPage() != "world_default" ) {
+            // Requested a non-world option, deliver it.
+            return opt;
+        }
+        // May be a new option and an old world - import default from global options.
+        wopts[name] = opt;
+    }
+    return wopts[name];
+}
+
+options_manager::options_container options_manager::get_world_defaults() const
+{
+    std::unordered_map<std::string, cOpt> result;
+    for( auto &elem : options ) {
+        if( elem.second.getPage() == "world_default" ) {
+            result.insert( elem );
+        }
+    }
+    return result;
+}
+
+std::vector<std::string> options_manager::getWorldOptPageItems() const
+{
+    // @todo mPageItems is const here, so we can not use its operator[], therefor the copy
+    auto temp = mPageItems;
+    return temp[iWorldOptPage];
 }

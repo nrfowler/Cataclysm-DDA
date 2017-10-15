@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RNG_H
 #define RNG_H
 
@@ -18,6 +19,15 @@ int roll_remainder( double value );
 int divide_roll_remainder( double dividend, double divisor );
 
 int djb2_hash( const unsigned char *input );
+
+double rng_normal( double lo, double hi );
+
+inline double rng_normal( double hi )
+{
+    return rng_normal( 0.0, hi );
+}
+
+double normal_roll( double mean, double stddev );
 
 /**
  * Returns a random entry in the container.
@@ -83,5 +93,24 @@ inline V random_entry_removed( C &container )
     container.erase( iter );
     return result;
 }
+
+namespace cata
+{
+template<typename T>
+class optional;
+} // namespace cata
+
+class map;
+struct tripoint;
+class tripoint_range;
+
+/// Returns a range enclosing all valid points of the map.
+tripoint_range points_in_range( const map &m );
+/// Returns a random point in the given range that satisfies the given predicate ( if any ).
+cata::optional<tripoint> random_point( const tripoint_range &range,
+                                       const std::function<bool( const tripoint & )> &predicate );
+/// Same as other random_point with a range enclosing all valid points of the map.
+cata::optional<tripoint> random_point( const map &m,
+                                       const std::function<bool( const tripoint & )> &predicate );
 
 #endif

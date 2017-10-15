@@ -1,3 +1,4 @@
+#pragma once
 #ifndef CATA_TILES_H
 #define CATA_TILES_H
 
@@ -7,7 +8,6 @@
 #include "animation.h"
 #include "map.h"
 #include "weather.h"
-#include "tile_id_data.h"
 #include "enums.h"
 #include "weighted_list.h"
 
@@ -83,11 +83,13 @@ enum TILE_CATEGORY {
 
 /** Typedefs */
 struct SDL_Texture_deleter {
+    // Operator overload required to leverage unique_ptr API.
     void operator()( SDL_Texture *const ptr );
 };
 using SDL_Texture_Ptr = std::unique_ptr<SDL_Texture, SDL_Texture_deleter>;
 
 struct SDL_Surface_deleter {
+    // Operator overload required to leverage unique_ptr API.
     void operator()( SDL_Surface *const ptr );
 };
 using SDL_Surface_Ptr = std::unique_ptr<SDL_Surface, SDL_Surface_deleter>;
@@ -135,7 +137,7 @@ struct pixel {
     pixel() : r( 0 ), g( 0 ), b( 0 ), a( 0 ) {
     }
 
-    pixel( int sr, int sg, int sb, int sa ) : r( sr ), g( sg ), b( sb ), a( sa ) {
+    pixel( int sr, int sg, int sb, int sa = 0xFF ) : r( sr ), g( sg ), b( sb ), a( sa ) {
     }
 
     pixel( SDL_Color c ) {
@@ -152,6 +154,19 @@ struct pixel {
         c.b = static_cast<Uint8>( b );
         c.a = static_cast<Uint8>( a );
         return c;
+    }
+
+    void adjust_brightness( int percent ) {
+        r = std::min( r * percent / 100, 0xFF );
+        g = std::min( g * percent / 100, 0xFF );
+        b = std::min( b * percent / 100, 0xFF );
+    }
+
+    void mix_with( const pixel &other, int percent ) {
+        const int my_percent = 100 - percent;
+        r = std::min( r * my_percent / 100 + other.r * percent / 100, 0xFF );
+        g = std::min( g * my_percent / 100 + other.g * percent / 100, 0xFF );
+        b = std::min( b * my_percent / 100 + other.b * percent / 100, 0xFF );
     }
 
     bool isBlack() const {
@@ -357,7 +372,7 @@ class cata_tiles
 
         /* Tile Picking */
         void get_tile_values( const int t, const int *tn, int &subtile, int &rotation );
-        void get_connect_values( const tripoint &p, int &subtile, int &rotation , int connect_group );
+        void get_connect_values( const tripoint &p, int &subtile, int &rotation, int connect_group );
         void get_terrain_orientation( const tripoint &p, int &rota, int &subtype );
         void get_rotation_and_subtile( const char val, const int num_connects, int &rota, int &subtype );
 

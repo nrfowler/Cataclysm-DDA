@@ -1,3 +1,4 @@
+#pragma once
 #ifndef MAP_ITERATOR_H
 #define MAP_ITERATOR_H
 
@@ -92,6 +93,13 @@ class tripoint_range
 
         bool empty() const {
             return size() == 0;
+        }
+
+        const tripoint &min() const {
+            return minp;
+        }
+        const tripoint &max() const {
+            return maxp;
         }
 };
 

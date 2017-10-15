@@ -1,8 +1,10 @@
 #include "mapdata.h"
+
 #include "color.h"
 #include "init.h"
 #include "game_constants.h"
 #include "generic_factory.h"
+#include "harvest.h"
 #include "debug.h"
 #include "translations.h"
 #include "output.h"
@@ -16,97 +18,107 @@ const std::set<std::string> classic_extras = { "mx_helicopter", "mx_military",
 "mx_crater", "mx_collegekids"
 };
 
-template<>
-const string_id<ter_t> string_id<ter_t>::NULL_ID( "t_null", 0 );
-
-template<>
-const string_id<furn_t> string_id<furn_t>::NULL_ID( "f_null", 0 );
-
 namespace
 {
+
+const units::volume DEFAULT_MAX_VOLUME_IN_SQUARE = units::from_liter( 1000 );
 
 generic_factory<ter_t> terrain_data( "terrain", "id", "aliases" );
 generic_factory<furn_t> furniture_data( "furniture", "id", "aliases" );
 
 }
 
+/** @relates int_id */
 template<>
 inline bool int_id<ter_t>::is_valid() const
 {
     return terrain_data.is_valid( *this );
 }
 
+/** @relates int_id */
 template<>
 const ter_t &int_id<ter_t>::obj() const
 {
     return terrain_data.obj( *this );
 }
 
+/** @relates int_id */
 template<>
 const string_id<ter_t> &int_id<ter_t>::id() const
 {
     return terrain_data.convert( *this );
 }
 
+/** @relates int_id */
 template<>
 int_id<ter_t> string_id<ter_t>::id() const
 {
     return terrain_data.convert( *this, t_null );
 }
 
+/** @relates int_id */
 template<>
 int_id<ter_t>::int_id( const string_id<ter_t> &id ) : _id( id.id() )
 {
 }
 
+/** @relates string_id */
 template<>
 const ter_t &string_id<ter_t>::obj() const
 {
     return terrain_data.obj( *this );
 }
 
+/** @relates string_id */
 template<>
 bool string_id<ter_t>::is_valid() const
 {
     return terrain_data.is_valid( *this );
 }
 
+/** @relates int_id */
 template<>
 inline bool int_id<furn_t>::is_valid() const
 {
     return furniture_data.is_valid( *this );
 }
 
+/** @relates int_id */
 template<>
 const furn_t &int_id<furn_t>::obj() const
 {
     return furniture_data.obj( *this );
 }
 
+/** @relates int_id */
 template<>
 const string_id<furn_t> &int_id<furn_t>::id() const
 {
     return furniture_data.convert( *this );
 }
 
+/** @relates string_id */
 template<>
 bool string_id<furn_t>::is_valid() const
 {
     return furniture_data.is_valid( *this );
 }
 
+/** @relates string_id */
 template<>
 const furn_t &string_id<furn_t>::obj() const
 {
     return furniture_data.obj( *this );
 }
 
+/** @relates string_id */
 template<>
 int_id<furn_t> string_id<furn_t>::id() const
 {
     return furniture_data.convert( *this, f_null );
 }
 
+/** @relates int_id */
 template<>
 int_id<furn_t>::int_id( const string_id<furn_t> &id ) : _id( id.id() )
 {
@@ -134,7 +146,6 @@ static const std::unordered_map<std::string, ter_bitflags> ter_bitflags_map = { 
     { "TRANSPARENT",              TFLAG_TRANSPARENT },    // map::trans / lightmap
     { "NOITEM",                   TFLAG_NOITEM },         // add/spawn_item*()
     { "FLAMMABLE_ASH",            TFLAG_FLAMMABLE_ASH },  // oh hey fire. again.
-    { "PLANT",                    TFLAG_PLANT },          // full map iteration
     { "WALL",                     TFLAG_WALL },           // smells
     { "DEEP_WATER",               TFLAG_DEEP_WATER },     // Deep enough to submerge things
     { "HARVESTED",                TFLAG_HARVESTED },      // harvested.  will not bear fruit.
@@ -154,6 +165,7 @@ static const std::unordered_map<std::string, ter_connects> ter_connects_map = { 
     { "CHAINFENCE",               TERCONN_CHAINFENCE },
     { "WOODFENCE",                TERCONN_WOODFENCE },
     { "RAILING",                  TERCONN_RAILING },
+    { "WATER",                    TERCONN_WATER },
 } };
 
 void load_map_bash_tent_centers( JsonArray ja, std::vector<std::string> &centers ) {
@@ -161,6 +173,14 @@ void load_map_bash_tent_centers( JsonArray ja, std::vector<std::string> &centers
         centers.push_back( ja.next_string() );
     }
 }
+
+map_bash_info::map_bash_info() : str_min( -1 ), str_max( -1 ),
+                                 str_min_blocked( -1 ), str_max_blocked( -1 ),
+                                 str_min_supported( -1 ), str_max_supported( -1 ),
+                                 explosive( 0 ), sound_vol( -1 ), sound_fail_vol( -1 ),
+                                 collapse_radius( 1 ), destroy_only( false ), bash_below( false ),
+                                 drop_group( "EMPTY_GROUP" ),
+                                 ter_set( ter_str_id::NULL_ID() ), furn_set( furn_str_id::NULL_ID() ) {};
 
 bool map_bash_info::load(JsonObject &jsobj, std::string member, bool isfurniture) {
     if( !jsobj.has_object(member) ) {
@@ -211,6 +231,9 @@ bool map_bash_info::load(JsonObject &jsobj, std::string member, bool isfurniture
     return true;
 }
 
+map_deconstruct_info::map_deconstruct_info() : can_do( false ), deconstruct_above( false ),
+                                               ter_set( ter_str_id::NULL_ID() ), furn_set( furn_str_id::NULL_ID() ) {};
+
 bool map_deconstruct_info::load(JsonObject &jsobj, std::string member, bool isfurniture)
 {
     if (!jsobj.has_object(member)) {
@@ -231,8 +254,8 @@ bool map_deconstruct_info::load(JsonObject &jsobj, std::string member, bool isfu
 
 furn_t null_furniture_t() {
   furn_t new_furniture;
-  new_furniture.id = NULL_ID;
-  new_furniture.name = _("nothing");
+  new_furniture.id = furn_str_id::NULL_ID();
+  new_furniture.name_ = translate_marker( "nothing" );
   new_furniture.symbol_.fill( ' ' );
   new_furniture.color_.fill( c_white );
   new_furniture.movecost = 0;
@@ -240,75 +263,81 @@ furn_t null_furniture_t() {
   new_furniture.transparent = true;
   new_furniture.set_flag("TRANSPARENT");
   new_furniture.examine = iexamine_function_from_string("none");
-  new_furniture.max_volume = MAX_VOLUME_IN_SQUARE;
+  new_furniture.max_volume = DEFAULT_MAX_VOLUME_IN_SQUARE;
   return new_furniture;
 }
+
+ter_t::ter_t() : open( ter_str_id::NULL_ID() ), close( ter_str_id::NULL_ID() ),
+                 transforms_into( ter_str_id::NULL_ID() ),
+                 roof( ter_str_id::NULL_ID() ), trap( tr_null ) {};
 
 ter_t null_terrain_t() {
   ter_t new_terrain;
 
-  new_terrain.id = NULL_ID;
-  new_terrain.name = _("nothing");
+  new_terrain.id = ter_str_id::NULL_ID();
+  new_terrain.name_ = translate_marker( "nothing" );
   new_terrain.symbol_.fill( ' ' );
   new_terrain.color_.fill( c_white );
-  new_terrain.movecost = 2;
+  new_terrain.movecost = 0;
   new_terrain.transparent = true;
   new_terrain.set_flag("TRANSPARENT");
   new_terrain.set_flag("DIGGABLE");
   new_terrain.examine = iexamine_function_from_string("none");
-  new_terrain.max_volume = MAX_VOLUME_IN_SQUARE;
+  new_terrain.max_volume = DEFAULT_MAX_VOLUME_IN_SQUARE;
   return new_terrain;
 }
 
-long string_to_symbol( JsonIn &js )
-{
-    const std::string s = js.get_string();
-    if( s == "LINE_XOXO" ) {
-        return LINE_XOXO;
-    } else if( s == "LINE_OXOX" ) {
-        return LINE_OXOX;
-    } else if( s.length() != 1 ) {
-        js.error( "Symbol string must be exactly 1 character long." );
-    }
-    return s[0];
-}
-
 template<typename C, typename F>
-void load_season_array( JsonIn &js, C &container, F load_func )
+void load_season_array( JsonObject &jo, const std::string &key, C &container, F load_func )
 {
-    if( js.test_array() ) {
-        js.start_array();
-        for( auto &season_entry : container ) {
-            season_entry = load_func( js );
-            js.end_array(); // consume separator
+    if( jo.has_string( key ) ) {
+        container.fill( load_func( jo.get_string( key ) ) );
+
+    } else if( jo.has_array( key ) ) {
+        auto arr = jo.get_array( key );
+        if( arr.size() == 1 ) {
+            container.fill( load_func( arr.get_string( 0 ) ) );
+
+        } else if( arr.size() == container.size() ) {
+            for( auto &e : container ) {
+                e = load_func( arr.next_string() );
+            }
+
+        } else {
+            jo.throw_error( "Incorrect number of entries", key );
         }
+
     } else {
-        container.fill( load_func( js ) );
+        jo.throw_error( "Expected string or array", key );
     }
 }
 
-nc_color bgcolor_from_json( JsonIn &js)
+std::string map_data_common_t::name() const
 {
-    return bgcolor_from_string( js.get_string() );
-}
-
-nc_color color_from_json( JsonIn &js)
-{
-    return color_from_string( js.get_string() );
+    return _( name_.c_str() );
 }
 
 void map_data_common_t::load_symbol( JsonObject &jo )
 {
-    load_season_array( *jo.get_raw( "symbol" ), symbol_, string_to_symbol );
+    load_season_array( jo, "symbol", symbol_, [&jo]( const std::string &str ) {
+        if( str == "LINE_XOXO" ) {
+            return LINE_XOXO;
+        } else if( str == "LINE_OXOX" ) {
+            return LINE_OXOX;
+        } else if( str.length() != 1 ) {
+            jo.throw_error( "Symbol string must be exactly 1 character long.", "symbol" );
+        }
+        return (int) str[0];
+    } );
 
     const bool has_color = jo.has_member( "color" );
     const bool has_bgcolor = jo.has_member( "bgcolor" );
     if( has_color && has_bgcolor ) {
         jo.throw_error( "Found both color and bgcolor, only one of these is allowed." );
     } else if( has_color ) {
-        load_season_array( *jo.get_raw( "color" ), color_, color_from_json );
+        load_season_array( jo, "color", color_, color_from_string );
     } else if( has_bgcolor ) {
-        load_season_array( *jo.get_raw( "bgcolor" ), color_, bgcolor_from_json );
+        load_season_array( jo, "bgcolor", color_, bgcolor_from_string );
     } else {
         jo.throw_error( "Missing member: one of: \"color\", \"bgcolor\" must exist." );
     }
@@ -324,20 +353,32 @@ nc_color map_data_common_t::color() const
     return color_[calendar::turn.get_season()];
 }
 
-void load_furniture(JsonObject &jsobj)
+const harvest_id &map_data_common_t::get_harvest() const
+{
+    return harvest_by_season[calendar::turn.get_season()];
+}
+
+const std::set<std::string> &map_data_common_t::get_harvest_names() const
+{
+    static const std::set<std::string> null_names = {};
+    const harvest_id &hid = get_harvest();
+    return hid.is_null() ? null_names : hid->names();
+}
+
+void load_furniture( JsonObject &jo, const std::string &src )
 {
     if( furniture_data.empty() ) {
         furniture_data.insert( null_furniture_t() );
     }
-    furniture_data.load( jsobj );
+    furniture_data.load( jo, src );
 }
 
-void load_terrain(JsonObject &jsobj)
+void load_terrain( JsonObject &jo, const std::string &src )
 {
     if( terrain_data.empty() ) { // todo@ This shouldn't live here
         terrain_data.insert( null_terrain_t() );
     }
-    terrain_data.load( jsobj );
+    terrain_data.load( jo, src );
 }
 
 void map_data_common_t::set_flag( const std::string &flag )
@@ -378,12 +419,13 @@ bool map_data_common_t::connects( int &ret ) const {
 ter_id t_null,
     t_hole, // Real nothingness; makes you fall a z-level
     // Ground
-    t_dirt, t_sand, t_dirtmound, t_pit_shallow, t_pit,
+    t_dirt, t_sand, t_clay, t_dirtmound, t_pit_shallow, t_pit,
     t_pit_corpsed, t_pit_covered, t_pit_spiked, t_pit_spiked_covered, t_pit_glass, t_pit_glass_covered,
     t_rock_floor,
     t_grass,
     t_metal_floor,
     t_pavement, t_pavement_y, t_sidewalk, t_concrete,
+    t_thconc_floor,
     t_floor, t_floor_waxed,
     t_dirtfloor,//Dirt floor(Has roof)
     t_carpet_red,t_carpet_yellow,t_carpet_purple,t_carpet_green,
@@ -402,6 +444,8 @@ ter_id t_null,
     t_wall_glass,
     t_wall_glass_alarm,
     t_reinforced_glass,
+    t_reinforced_door_glass_o,
+    t_reinforced_door_glass_c,
     t_bars,
     t_wall_r,t_wall_w,t_wall_b,t_wall_g,t_wall_p,t_wall_y,
     t_door_c, t_door_c_peep, t_door_b, t_door_b_peep, t_door_o, t_door_o_peep, t_rdoor_c, t_rdoor_b, t_rdoor_o,t_door_locked_interior, t_door_locked, t_door_locked_peep, t_door_locked_alarm, t_door_frame,
@@ -472,6 +516,7 @@ void set_ter_ids() {
     t_hole = ter_id( "t_hole" );
     t_dirt = ter_id( "t_dirt" );
     t_sand = ter_id( "t_sand" );
+    t_clay = ter_id( "t_clay" );
     t_dirtmound = ter_id( "t_dirtmound" );
     t_pit_shallow = ter_id( "t_pit_shallow" );
     t_pit = ter_id( "t_pit" );
@@ -488,6 +533,7 @@ void set_ter_ids() {
     t_pavement_y = ter_id( "t_pavement_y" );
     t_sidewalk = ter_id( "t_sidewalk" );
     t_concrete = ter_id( "t_concrete" );
+    t_thconc_floor = ter_id( "t_thconc_floor" );
     t_floor = ter_id( "t_floor" );
     t_floor_waxed = ter_id( "t_floor_waxed" );
     t_dirtfloor = ter_id( "t_dirtfloor" );
@@ -519,6 +565,8 @@ void set_ter_ids() {
     t_wall_glass = ter_id( "t_wall_glass" );
     t_wall_glass_alarm = ter_id( "t_wall_glass_alarm" );
     t_reinforced_glass = ter_id( "t_reinforced_glass" );
+    t_reinforced_door_glass_c = ter_id( "t_reinforced_door_glass_c" );
+    t_reinforced_door_glass_o = ter_id( "t_reinforced_door_glass_o" );
     t_bars = ter_id( "t_bars" );
     t_wall_b = ter_id( "t_wall_b" );
     t_wall_g = ter_id( "t_wall_g" );
@@ -755,7 +803,7 @@ furn_id f_null,
     f_rack, f_bookcase,
     f_washer, f_dryer,
     f_vending_c, f_vending_o, f_dumpster, f_dive_block,
-    f_crate_c, f_crate_o,
+    f_crate_c, f_crate_o, f_coffin_c, f_coffin_o,
     f_large_canvas_wall, f_canvas_wall, f_canvas_door, f_canvas_door_o, f_groundsheet, f_fema_groundsheet, f_large_groundsheet,
     f_large_canvas_door, f_large_canvas_door_o, f_center_groundsheet, f_skin_wall, f_skin_door, f_skin_door_o, f_skin_groundsheet,
     f_mutpoppy, f_flower_fungal, f_fungal_mass, f_fungal_clump,f_dahlia,f_datura,f_dandelion,f_cattails,f_bluebell,
@@ -769,7 +817,7 @@ furn_id f_null,
     f_floor_canvas,
     f_tatami,
     f_kiln_empty, f_kiln_full, f_kiln_metal_empty, f_kiln_metal_full,
-    f_robotic_arm;
+    f_robotic_arm, f_vending_reinforced;
 
 void set_furn_ids() {
     f_null = furn_id( "f_null" );
@@ -816,10 +864,13 @@ void set_furn_ids() {
     f_dryer = furn_id( "f_dryer" );
     f_vending_c = furn_id( "f_vending_c" );
     f_vending_o = furn_id( "f_vending_o" );
+    f_vending_reinforced = furn_id( "f_vending_reinforced" );
     f_dumpster = furn_id( "f_dumpster" );
     f_dive_block = furn_id( "f_dive_block" );
     f_crate_c = furn_id( "f_crate_c" );
     f_crate_o = furn_id( "f_crate_o" );
+    f_coffin_c = furn_id( "f_coffin_c" );
+    f_coffin_o = furn_id( "f_coffin_o" );
     f_canvas_wall = furn_id( "f_canvas_wall" );
     f_large_canvas_wall = furn_id( "f_large_canvas_wall" );
     f_canvas_door = furn_id( "f_canvas_door" );
@@ -873,11 +924,66 @@ size_t ter_t::count()
     return terrain_data.size();
 }
 
-void ter_t::load( JsonObject &jo )
+namespace io {
+static const std::map<std::string, season_type> season_map = {{
+    { "spring", season_type::SPRING },
+    { "summer", season_type::SUMMER },
+    { "autumn", season_type::AUTUMN },
+    { "winter", season_type::WINTER }
+}};
+template<>
+season_type string_to_enum<season_type>( const std::string &data )
 {
-    mandatory( jo, was_loaded, "name", name, translated_string_reader );
+    return string_to_enum_look_up( season_map, data );
+}
+}
+
+void map_data_common_t::load( JsonObject &jo, const std::string &src )
+{
+    if( jo.has_member( "examine_action" ) ) {
+        examine = iexamine_function_from_string( jo.get_string( "examine_action" ) );
+    } else {
+        examine = iexamine_function_from_string( "none" );
+    }
+
+    if( jo.has_array( "harvest_by_season" ) ) {
+        JsonArray jsarr = jo.get_array( "harvest_by_season" );
+        while( jsarr.has_more() ) {
+            JsonObject harvest_jo = jsarr.next_object();
+            auto season_strings = harvest_jo.get_tags( "seasons" );
+            std::set<season_type> seasons;
+            std::transform( season_strings.begin(), season_strings.end(), std::inserter( seasons, seasons.begin() ),
+            []( const std::string &data ) {
+                return io::string_to_enum<season_type>( data );
+            } );
+
+            harvest_id hl;
+            if( harvest_jo.has_array( "entries" ) ) {
+                // @todo A better inline name - can't use id or name here because it's not set yet
+                size_t num = harvest_list::all().size() + 1;
+                hl = harvest_list::load( harvest_jo, src,
+                                         string_format( "harvest_inline_%d", (int)num ) );
+            } else if( harvest_jo.has_string( "id" ) ) {
+                hl = harvest_id( harvest_jo.get_string( "id" ) );
+            } else {
+                jo.throw_error( "Each harvest entry must specify either \"entries\" or \"id\"", "harvest_by_season" );
+            }
+
+            for( season_type s : seasons ) {
+                harvest_by_season[ s ] = hl;
+            }
+        }
+    }
+
+    optional( jo, false, "description", description, translated_string_reader );
+}
+
+void ter_t::load( JsonObject &jo, const std::string &src )
+{
+    map_data_common_t::load( jo, src );
+    mandatory( jo, was_loaded, "name", name_ );
     mandatory( jo, was_loaded, "move_cost", movecost );
-    optional( jo, was_loaded, "max_volume", max_volume, MAX_VOLUME_IN_SQUARE );
+    optional( jo, was_loaded, "max_volume", max_volume, legacy_volume_reader, DEFAULT_MAX_VOLUME_IN_SQUARE );
     optional( jo, was_loaded, "trap", trap_id_str );
 
     load_symbol( jo );
@@ -896,34 +1002,10 @@ void ter_t::load( JsonObject &jo )
         set_connects( jo.get_string( "connects_to" ) );
     }
 
-    if( jo.has_member( "examine_action" ) ) {
-        examine = iexamine_function_from_string( jo.get_string( "examine_action" ) );
-    } else {
-        examine = iexamine_function_from_string( "none" );
-    }
-
-    optional( jo, was_loaded, "harvestable", harvestable );
-    optional( jo, was_loaded, "open", open, NULL_ID );
-    optional( jo, was_loaded, "close", close, NULL_ID );
-    optional( jo, was_loaded, "transforms_into", transforms_into, NULL_ID );
-    optional( jo, was_loaded, "roof", roof, NULL_ID );
-
-    if( jo.has_member("harvest_season") ) {
-        const std::string season = jo.get_string( "harvest_season" );
-
-        if( season == "SPRING" ) {
-            harvest_season = season_type::SPRING;
-        } else if( season == "SUMMER" ) {
-            harvest_season = season_type::SUMMER;
-        } else if( season == "AUTUMN" ) {
-            harvest_season = season_type::AUTUMN;
-        } else if( season == "WINTER" ) {
-            harvest_season = season_type::WINTER;
-        } else {
-            harvest_season = season_type::AUTUMN;
-            debugmsg( "Invalid harvest season \"%s\" in \"%s\".", season.c_str(), id.c_str() );
-        }
-    }
+    optional( jo, was_loaded, "open", open, ter_str_id::NULL_ID() );
+    optional( jo, was_loaded, "close", close, ter_str_id::NULL_ID() );
+    optional( jo, was_loaded, "transforms_into", transforms_into, ter_str_id::NULL_ID() );
+    optional( jo, was_loaded, "roof", roof, ter_str_id::NULL_ID() );
 
     bash.load( jo, "bash", false );
     deconstruct.load( jo, "deconstruct", false );
@@ -968,6 +1050,7 @@ void check_decon_items(const map_deconstruct_info &mbi, const std::string &id, b
 
 void ter_t::check() const
 {
+    map_data_common_t::check();
     check_bash_items( bash, id.str(), true );
     check_decon_items( deconstruct, id.str(), true );
 
@@ -980,19 +1063,25 @@ void ter_t::check() const
     if( !close.is_valid() ) {
         debugmsg( "invalid terrain %s for closing %s", close.c_str(), id.c_str() );
     }
+    if( transforms_into && transforms_into == id ) {
+        debugmsg( "%s transforms_into itself", id.c_str() );
+    }
 }
+
+furn_t::furn_t() : open( furn_str_id::NULL_ID() ), close( furn_str_id::NULL_ID() ) {};
 
 size_t furn_t::count()
 {
     return furniture_data.size();
 }
 
-void furn_t::load( JsonObject &jo )
+void furn_t::load( JsonObject &jo, const std::string &src )
 {
-    mandatory( jo, was_loaded, "name", name, translated_string_reader );
+    map_data_common_t::load( jo, src );
+    mandatory( jo, was_loaded, "name", name_ );
     mandatory( jo, was_loaded, "move_cost_mod", movecost );
     mandatory( jo, was_loaded, "required_str", move_str_req );
-    optional( jo, was_loaded, "max_volume", max_volume, MAX_VOLUME_IN_SQUARE );
+    optional( jo, was_loaded, "max_volume", max_volume, legacy_volume_reader, DEFAULT_MAX_VOLUME_IN_SQUARE );
     optional( jo, was_loaded, "crafting_pseudo_item", crafting_pseudo_item, "" );
 
     load_symbol( jo );
@@ -1002,21 +1091,25 @@ void furn_t::load( JsonObject &jo )
         set_flag( flag );
     }
 
-    if( jo.has_member( "examine_action" ) ) {
-        examine = iexamine_function_from_string( jo.get_string( "examine_action" ) );
-    } else {
-        examine = iexamine_function_from_string( "none" );
-    }
-
-    optional( jo, was_loaded, "open", open, string_id_reader<furn_t> {}, NULL_ID );
-    optional( jo, was_loaded, "close", close, string_id_reader<furn_t> {}, NULL_ID );
+    optional( jo, was_loaded, "open", open, string_id_reader<furn_t> {}, furn_str_id::NULL_ID() );
+    optional( jo, was_loaded, "close", close, string_id_reader<furn_t> {}, furn_str_id::NULL_ID() );
 
     bash.load( jo, "bash", true );
     deconstruct.load( jo, "deconstruct", true );
 }
 
+void map_data_common_t::check() const
+{
+    for( auto &harvest : harvest_by_season ) {
+        if( !harvest.is_null() && examine == iexamine::none ) {
+            debugmsg( "Harvest data defined without examine function for %s", name_.c_str() );
+        }
+    }
+}
+
 void furn_t::check() const
 {
+    map_data_common_t::check();
     check_bash_items( bash, id.str(), false );
     check_decon_items( deconstruct, id.str(), false );
 
@@ -1033,3 +1126,5 @@ void check_furniture_and_terrain()
     terrain_data.check();
     furniture_data.check();
 }
+
+ter_furn_id::ter_furn_id() : ter( t_null ), furn( f_null ) { }

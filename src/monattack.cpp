@@ -1,8 +1,12 @@
-#include "mondeath.h"
 #include "monster.h"
+#include "mondeath.h"
+
+#include "ballistics.h"
+#include "dispersion.h"
 #include "game.h"
 #include "debug.h"
 #include "map.h"
+#include "fungal_effects.h"
 #include "rng.h"
 #include "line.h"
 #include "bodypart.h"
@@ -38,7 +42,6 @@
 
 // for loading monster dialogue:
 #include <iostream>
-#include <fstream>
 
 #include <limits>  // std::numeric_limits
 #define SKIPLINE(stream) stream.ignore(std::numeric_limits<std::streamsize>::max(), '\n')
@@ -106,6 +109,14 @@ const efftype_id effect_stunned( "stunned" );
 const efftype_id effect_targeted( "targeted" );
 const efftype_id effect_teleglow( "teleglow" );
 
+static const trait_id trait_ACIDBLOOD( "ACIDBLOOD" );
+static const trait_id trait_MARLOSS_BLUE( "MARLOSS_BLUE" );
+static const trait_id trait_MARLOSS( "MARLOSS" );
+static const trait_id trait_PARAIMMUNE( "PARAIMMUNE" );
+static const trait_id trait_TAIL_CATTLE( "TAIL_CATTLE" );
+static const trait_id trait_THRESH_MARLOSS( "THRESH_MARLOSS" );
+static const trait_id trait_THRESH_MYCUS( "THRESH_MYCUS" );
+
 // shared utility functions
 int within_visual_range(monster *z, int max_range) {
     int dist;
@@ -168,7 +179,7 @@ npc make_fake_npc(monster *z, int str, int dex, int inte, int per) {
     tmp.int_cur = inte;
     tmp.per_cur = per;
     if( z->friendly != 0 ) {
-        tmp.attitude = NPCATT_DEFEND;
+        tmp.attitude = NPCATT_FOLLOW;
     } else {
         tmp.attitude = NPCATT_KILL;
     }
@@ -183,19 +194,16 @@ bool mattack::none(monster *)
 bool mattack::antqueen(monster *z)
 {
     std::vector<tripoint> egg_points;
-    std::vector<int> ants;
+    std::vector<monster*> ants;
     // Count up all adjacent tiles the contain at least one egg.
     for( const auto &dest : g->m.points_in_radius( z->pos(), 2 ) ) {
         if( g->m.impassable( dest ) ) {
             continue;
         }
 
-        const int mondex = g->mon_at( dest );
-        if( mondex != -1 ) {
-            monster &mon = g->zombie( mondex );
-            if( mon.type->id == mon_ant_larva ||
-                mon.type->id == mon_ant ) {
-                ants.push_back(mondex);
+        if( monster * const mon = g->critter_at<monster>( dest ) ) {
+            if( mon->type->id == mon_ant_larva || mon->type->id == mon_ant ) {
+                ants.push_back( mon );
             }
 
             continue;
@@ -214,7 +222,7 @@ bool mattack::antqueen(monster *z)
 
     if( !ants.empty() ) {
         z->moves -= 100; // It takes a while
-        monster *ant = &(g->zombie( random_entry( ants ) ) );
+        monster *ant = random_entry( ants );
         if( g->u.sees( *z ) && g->u.sees( *ant ) )
             add_msg(m_warning, _("The %1$s feeds an %2$s and it grows!"), z->name().c_str(),
                     ant->name().c_str());
@@ -403,7 +411,7 @@ bool mattack::acid(monster *z)
     proj.impact.add_damage( DT_ACID, 5 ); // Mostly just for momentum
     proj.range = 10;
     proj.proj_effects.insert( "NO_OVERSHOOT" );
-    auto dealt = z->projectile_attack( proj, target->pos(), 5400 );
+    auto dealt = projectile_attack( proj, z->pos(), target->pos(), { 5400 }, z );
     const tripoint &hitp = dealt.end_point;
     const Creature *hit_critter = dealt.hit_critter;
     if( hit_critter == nullptr && g->m.hit_with_acid( hitp ) && g->u.sees( hitp ) ) {
@@ -480,7 +488,7 @@ bool mattack::acid_barf(monster *z)
     } else {
         target->add_msg_player_or_npc(
             _("The %1$s barfs acid on your %2$s, but it washes off the armor!"),
-            _("The %1$s bites <npcname>'s %2$s, but it washes off the armor!"),
+            _("The %1$s barfs acid on <npcname>'s %2$s, but it washes off the armor!"),
             z->name().c_str(),
             body_part_name_accusative( hit ).c_str() );
     }
@@ -515,7 +523,7 @@ bool mattack::acid_accurate(monster *z)
     proj.proj_effects.insert( "NO_DAMAGE_SCALING" );
     proj.impact.add_damage( DT_ACID, rng( 3, 5 ) );
     // Make it arbitrarily less accurate at close ranges
-    z->projectile_attack( proj, target->pos(), rng( 0, 8000 / range ) );
+    projectile_attack( proj, z->pos(), target->pos(), { 8000.0 * (double)range }, z );
 
     return true;
 }
@@ -607,34 +615,6 @@ bool mattack::pull_metal_weapon(monster *z)
                                                        _("The %s unsuccessfully attempts to pull <npcname>'s weapon away."), z->name().c_str() );
             }
         }
-    }
-
-    return true;
-}
-
-bool mattack::smokecloud(monster *z)
-{
-    const auto place_smoke = [&]( const int x, const int y ) {
-        tripoint dest( x, y, z->posz() );
-        if( g->m.passable( dest ) &&
-            g->m.clear_path( z->pos(), dest, 3, 1, 100 ) ) {
-            g->m.add_field( dest, fd_smoke, 2, 0 );
-        }
-    };
-
-    const int monx = z->posx();
-    const int mony = z->posy();
-    for (int i = -3; i <= 3; i++) {
-        for (int j = -3; j <= 3; j++) {
-            place_smoke( monx + i, mony + j );
-        }
-    }
-    //Round it out a bit
-    for( int i = -2; i <= 2; i++ ) {
-        place_smoke( monx + i, mony + 4 );
-        place_smoke( monx + i, mony - 4 );
-        place_smoke( monx + 4, mony + i );
-        place_smoke( monx - 4, mony + i );
     }
 
     return true;
@@ -778,7 +758,7 @@ bool mattack::resurrect(monster *z)
                 }
                 return false;
             }
-            int raise_score = (i.damage + 1) * mt->hp + i.burnt;
+            int raise_score = (i.damage() + 1) * mt->hp + i.burnt;
             lowest_raise_score = std::min( lowest_raise_score, raise_score );
             if( raise_score <= raising_level ) {
                 corpses.push_back( std::make_pair( p, &i ) );
@@ -832,7 +812,7 @@ bool mattack::resurrect(monster *z)
     }
 
     std::pair<tripoint, item*> raised = random_entry( corpses );
-    float corpse_damage = raised.second->damage;
+    float corpse_damage = raised.second->damage();
     // Did we successfully raise something?
     if (g->revive_corpse(raised.first, *raised.second)) {
         g->m.i_rem( raised.first, raised.second );
@@ -844,13 +824,12 @@ bool mattack::resurrect(monster *z)
         // Penalize speed by between 10% and 50% based on how damaged the corpse is.
         float speed_penalty = 0.1 + (corpse_damage * 0.1);
         z->set_speed_base(z->get_speed_base() - speed_penalty * z->type->speed);
-        const int mondex = g->mon_at(raised.first);
-        if( mondex == -1 ) {
+        monster *const zed = g->critter_at<monster>( raised.first );
+        if( !zed ) {
             debugmsg( "Misplaced or failed to revive a zombie corpse" );
             return true;
         }
 
-        monster *zed = &g->zombie( mondex );
         zed->make_ally(z);
         if (g->u.sees(*zed)) {
             add_msg(m_warning, _("A nearby %s rises from the dead!"), zed->name().c_str());
@@ -1118,8 +1097,7 @@ bool mattack::science(monster *const z) // I said SCIENCE again!
         }
 
         const tripoint where = empty_neighbors.first[get_random_index(empty_neighbor_count)];
-        if( g->summon_mon( mon_manhack, where ) ) {
-            monster *manhack = g->monster_at( where );
+        if( monster * const manhack = g->summon_mon( mon_manhack, where ) ) {
             manhack->make_ally(z);
         }
       } break;
@@ -1283,8 +1261,7 @@ bool mattack::grow_vine(monster *z)
                 continue;
             }
 
-            if( g->summon_mon( mon_creeper_vine, dest ) ) {
-                monster *vine = g->monster_at(dest);
+            if( monster * const vine = g->summon_mon( mon_creeper_vine, dest ) ) {
                 vine->make_ally( z );
             }
         }
@@ -1325,9 +1302,8 @@ bool mattack::vine(monster *z)
 
         if( g->is_empty(dest) ) {
             grow.push_back(dest);
-        } else {
-            const int zid = g->mon_at(dest);
-            if( zid > -1 && g->zombie(zid).type->id == mon_creeper_vine ) {
+        } else if( monster * const z = g->critter_at<monster>( dest ) ) {
+            if( z->type->id == mon_creeper_vine ) {
                 vine_neighbors++;
             }
         }
@@ -1347,8 +1323,7 @@ bool mattack::vine(monster *z)
         return true;
     }
     const tripoint target = random_entry( grow );
-    if( g->summon_mon(mon_creeper_vine, target) ) {
-        monster *vine = g->monster_at( target );
+    if( monster * const vine = g->summon_mon(mon_creeper_vine, target) ) {
         vine->make_ally(z);
         vine->reset_special("VINE");
     }
@@ -1376,7 +1351,7 @@ bool mattack::spit_sap(monster *z)
     proj.range = 12;
     proj.proj_effects.insert( "APPLY_SAP" );
     proj.impact.add_damage( DT_ACID, rng( 5, 10 ) );
-    z->projectile_attack( proj, target->pos(), 150 );
+    projectile_attack( proj, z->pos(), target->pos(), { 150 }, z );
 
     return true;
 }
@@ -1393,8 +1368,10 @@ bool mattack::triffid_heartbeat(monster *z)
         // Maybe remove this and allow spawning monsters above?
         return true;
     }
+
+    static pathfinding_settings root_pathfind( 10, 20, 50, 0, false, false, false );
     if (rl_dist( z->pos(), g->u.pos() ) > 5 &&
-        !g->m.route( g->u.pos(), z->pos(), 10, 20 ).empty()) {
+        !g->m.route( g->u.pos(), z->pos(), root_pathfind ).empty()) {
         add_msg(m_warning, _("The root walls creak around you."));
         for( const tripoint &dest : g->m.points_in_radius( z->pos(), 3 ) ) {
             if (g->is_empty(dest) && one_in(4)) {
@@ -1405,22 +1382,21 @@ bool mattack::triffid_heartbeat(monster *z)
         }
         // Open blank tiles as long as there's no possible route
         int tries = 0;
-        while (g->m.route( g->u.pos(), z->pos(), 10, 20 ).empty() &&
+        while (g->m.route( g->u.pos(), z->pos(), root_pathfind ).empty() &&
                tries < 20) {
             int x = rng(g->u.posx(), z->posx() - 3), y = rng(g->u.posy(), z->posy() - 3);
             tripoint dest( x, y, z->posz() );
             tries++;
             g->m.ter_set(dest, t_dirt);
             if (rl_dist(dest, g->u.pos()) > 3 && g->num_zombies() < 30 &&
-                g->mon_at( dest ) == -1 && one_in(20)) { // Spawn an extra monster
+                !g->critter_at( dest ) && one_in( 20 ) ) { // Spawn an extra monster
                 mtype_id montype = mon_triffid;
                 if (one_in(4)) {
                     montype = mon_creeper_hub;
                 } else if (one_in(3)) {
                     montype = mon_biollante;
                 }
-                if (g->summon_mon(montype, dest)) {
-                    monster *plant = g->monster_at(dest);
+                if( monster * const plant = g->summon_mon( montype, dest ) ) {
                     plant->make_ally(z);
                 }
             }
@@ -1430,8 +1406,7 @@ bool mattack::triffid_heartbeat(monster *z)
 
         for( const tripoint &dest : g->m.points_in_radius( z->pos(), 1 ) ) {
             if (g->is_empty(dest) && one_in(2)) {
-                if (g->summon_mon(mon_triffid, dest)) {
-                    monster *triffid = g->monster_at(dest);
+                if( monster * const  triffid = g->summon_mon( mon_triffid, dest ) ) {
                     triffid->make_ally(z);
                 }
             }
@@ -1445,7 +1420,7 @@ bool mattack::fungus(monster *z)
 {
     // TODO: Infect NPCs?
     z->moves -= 200;   // It takes a while
-    if (g->u.has_trait("THRESH_MYCUS")) {
+    if (g->u.has_trait( trait_THRESH_MYCUS )) {
         z->friendly = 100;
     }
     //~ the sound of a fungus releasing spores
@@ -1478,6 +1453,7 @@ bool mattack::fungus(monster *z)
         }
     }
 
+    fungal_effects fe( *g, g->m );
     for (int i = -radius; i <= radius; i++) {
         for (int j = -radius; j <= radius; j++) {
             if( i == 0 && j == 0 ) {
@@ -1492,7 +1468,7 @@ bool mattack::fungus(monster *z)
                 continue;
             }
 
-            g->m.fungalize( sporep, z, spore_chance );
+            fe.fungalize( sporep, z, spore_chance );
         }
     }
 
@@ -1567,11 +1543,11 @@ bool mattack::fungus_inject(monster *z)
         return false;
     }
 
-    if (g->u.has_trait("THRESH_MARLOSS") || g->u.has_trait("THRESH_MYCUS")) {
+    if (g->u.has_trait( trait_THRESH_MARLOSS ) || g->u.has_trait( trait_THRESH_MYCUS )) {
         z->friendly = 1;
         return true;
     }
-    if ( (g->u.has_trait("MARLOSS")) && (g->u.has_trait("MARLOSS_BLUE")) && !g->u.crossed_threshold()) {
+    if ( (g->u.has_trait( trait_MARLOSS )) && (g->u.has_trait( trait_MARLOSS_BLUE )) && !g->u.crossed_threshold()) {
         add_msg(m_info, _("The %s seems to wave you toward the tower..."), z->name().c_str());
         z->anger = 0;
         return true;
@@ -1623,7 +1599,7 @@ bool mattack::fungus_inject(monster *z)
 
 bool mattack::fungus_bristle(monster *z)
 {
-    if (g->u.has_trait("THRESH_MARLOSS") || g->u.has_trait("THRESH_MYCUS")) {
+    if (g->u.has_trait( trait_THRESH_MARLOSS ) || g->u.has_trait( trait_THRESH_MYCUS )) {
         z->friendly = 1;
     }
     Creature *target = z->attack_target();
@@ -1695,8 +1671,7 @@ bool mattack::fungus_sprout(monster *z)
             push_player = true;
         }
         if( g->is_empty(dest) ) {
-            if (g->summon_mon(mon_fungal_wall, dest)) {
-                monster *wall = g->monster_at(dest);
+            if( monster * const wall = g->summon_mon( mon_fungal_wall, dest ) ) {
                 wall->make_ally(z);
             }
         }
@@ -1719,10 +1694,10 @@ bool mattack::fungus_fortify(monster *z)
     Creature *target = &g->u;
     bool mycus = false;
     bool peaceful = true;
-    if (g->u.has_trait("THRESH_MARLOSS") || g->u.has_trait("THRESH_MYCUS")) {
+    if (g->u.has_trait( trait_THRESH_MARLOSS ) || g->u.has_trait( trait_THRESH_MYCUS )) {
         mycus = true; //No nifty support effects.  Yet.  This lets it rebuild hedges.
     }
-    if ( (g->u.has_trait("MARLOSS")) && (g->u.has_trait("MARLOSS_BLUE")) &&
+    if ( (g->u.has_trait( trait_MARLOSS )) && (g->u.has_trait( trait_MARLOSS_BLUE )) &&
          !g->u.crossed_threshold() && !mycus) {
         // You have the other two.  Is it really necessary for us to fight?
         add_msg(m_info, _("The %s spreads its tendrils.  It seems as though it's expecting you..."), z->name().c_str());
@@ -1731,9 +1706,9 @@ bool mattack::fungus_fortify(monster *z)
                 add_msg(m_warning, _("The %s works several tendrils into your arms, legs, torso, and even neck..."), z->name().c_str());
                 g->u.hurtall(1, z);
                 add_msg(m_warning, _("You see a clear golden liquid pump through the tendrils--and then lose consciousness."));
-                g->u.unset_mutation("MARLOSS");
-                g->u.unset_mutation("MARLOSS_BLUE");
-                g->u.set_mutation("THRESH_MARLOSS");
+                g->u.unset_mutation( trait_MARLOSS );
+                g->u.unset_mutation( trait_MARLOSS_BLUE );
+                g->u.set_mutation( trait_THRESH_MARLOSS );
                 g->m.ter_set(g->u.pos(), t_marloss); // We only show you the door.  You walk through it on your own.
                 g->u.add_memorial_log(pgettext("memorial_male", "Was shown to the Marloss Gatweay."),
                     pgettext("memorial_female", "Was shown to the Marloss Gateway."));
@@ -1756,8 +1731,7 @@ bool mattack::fungus_fortify(monster *z)
             push_player = true;
         }
         if (g->is_empty(dest)) {
-            if (g->summon_mon(mon_fungal_hedgerow, dest)) {
-                monster *wall = g->monster_at(dest);
+            if( monster * const wall = g->summon_mon( mon_fungal_hedgerow, dest ) ) {
                 wall->make_ally(z);
             }
             fortified = true;
@@ -1793,8 +1767,7 @@ bool mattack::fungus_fortify(monster *z)
             // Probably doesn't have spores available *just* yet.  Let's be nice.
         } else if( g->is_empty( hit_pos ) ) {
             add_msg( m_bad, _("A fungal tendril bursts forth from the earth!") );
-            if( g->summon_mon(mon_fungal_tendril, hit_pos) ) {
-                monster *tendril = g->monster_at( hit_pos );
+            if( monster * const tendril = g->summon_mon( mon_fungal_tendril, hit_pos ) ) {
                 tendril->make_ally(z);
             }
         }
@@ -1927,7 +1900,7 @@ bool mattack::dermatik(monster *z)
     ///\EFFECT_UNARMED increases chance to deflect dermatik attack
     int swat_skill = ( foe->get_skill_level( skill_melee ) + foe->get_skill_level( skill_unarmed ) * 2) / 3;
     int player_swat = dice(swat_skill, 10);
-    if( foe->has_trait("TAIL_CATTLE") ) {
+    if( foe->has_trait( trait_TAIL_CATTLE ) ) {
         target->add_msg_if_player(_("You swat at the %s with your tail!"), z->name().c_str());
         ///\EFFECT_DEX increases chance of deflecting dermatik attack with TAIL_CATTLE
 
@@ -1961,7 +1934,7 @@ bool mattack::dermatik(monster *z)
     //~ 1$s monster name(dermatic), 2$s bodypart name in accusative.
     target->add_msg_if_player( m_bad, _("The %1$s sinks its ovipositor into your %2$s!"), z->name().c_str(),
                             body_part_name_accusative(targeted).c_str());
-    if ( !foe->has_trait("PARAIMMUNE") || !foe->has_trait("ACIDBLOOD") ) {
+    if ( !foe->has_trait( trait_PARAIMMUNE ) || !foe->has_trait( trait_ACIDBLOOD ) ) {
         foe->add_effect( effect_dermatik, 1, targeted, true);
         foe->add_memorial_log(pgettext("memorial_male", "Injected with dermatik eggs."),
                               pgettext("memorial_female", "Injected with dermatik eggs."));
@@ -1984,8 +1957,9 @@ bool mattack::dermatik_growth(monster *z)
 
 bool mattack::plant( monster *z)
 {
+    fungal_effects fe( *g, g->m );
     // Spores taking seed and growing into a fungaloid
-    if( !g->spread_fungus( z->pos() ) && one_in( 10 + g->num_zombies() / 5 ) ) {
+    if( !fe.spread_fungus( z->pos() ) && one_in( 10 + g->num_zombies() / 5 ) ) {
         if( g->u.sees( *z ) ) {
             add_msg(m_warning, _("The %s takes seed and becomes a young fungaloid!"),
                     z->name().c_str());
@@ -2001,7 +1975,7 @@ bool mattack::plant( monster *z)
         }
         z->set_hp( 0 );
         // Try fungifying once again
-        g->spread_fungus( z->pos() );
+        fe.spread_fungus( z->pos() );
         return true;
     }
 }
@@ -2075,8 +2049,7 @@ bool mattack::formblob(monster *z)
                 // If we're big enough, spawn a baby blob.
                 didit = true;
                 z->set_speed_base( z->get_speed_base() - 15 );
-                if( g->summon_mon( mon_blob_small, dest ) ) {
-                    monster *blob = g->monster_at( dest );
+                if( monster * const blob = g->summon_mon( mon_blob_small, dest ) ) {
                     blob->make_ally( z );
                 }
 
@@ -2086,16 +2059,15 @@ bool mattack::formblob(monster *z)
             continue;
         }
 
-        monster *mon = dynamic_cast<monster*>( critter );
-        if( mon == nullptr ) {
+        if( critter->is_player() || critter->is_npc() ) {
             // If we hit the player or some NPC, cover them with slime
             didit = true;
             // TODO: Add some sort of a resistance/dodge roll
-            g->u.add_effect( effect_slimed, rng( 0, z->get_hp() ) );
+            critter->add_effect( effect_slimed, rng( 0, z->get_hp() ) );
             break;
         }
 
-        monster &othermon = *mon;
+        monster &othermon = *( dynamic_cast<monster *>( critter ) );
         // Hit a monster.  If it's a blob, give it our speed.  Otherwise, blobify it?
         if( z->get_speed_base() > 40 && othermon.type->in_species( BLOB ) ) {
             if( othermon.type->id == mon_blob_brain ) {
@@ -2609,7 +2581,7 @@ bool mattack::photograph(monster *z)
     // Badges should NOT be swappable between roles.
     // Hence separate checking.
     // If you are in fact listed as a police officer
-    if (g->u.has_trait("PROF_POLICE")) {
+    if( g->u.has_trait( trait_id( "PROF_POLICE" ) ) ) {
         // And you're wearing your badge
         if (g->u.is_wearing("badge_deputy")) {
             if (one_in(3)) {
@@ -2626,7 +2598,7 @@ bool mattack::photograph(monster *z)
         }
     }
 
-    if (g->u.has_trait("PROF_PD_DET")) {
+    if( g->u.has_trait( trait_id( "PROF_PD_DET" ) ) ) {
         // And you have your shield on
         if (g->u.is_wearing("badge_detective")) {
             if (one_in(4)) {
@@ -2641,7 +2613,7 @@ bool mattack::photograph(monster *z)
                 return true;
             }
         }
-    } else if (g->u.has_trait("PROF_SWAT")) {
+    } else if( g->u.has_trait( trait_id( "PROF_SWAT" ) ) ) {
         // And you're wearing your badge
         if (g->u.is_wearing("badge_swat")) {
             if (one_in(3)) {
@@ -2656,7 +2628,7 @@ bool mattack::photograph(monster *z)
                 return true;
             }
         }
-    } else if (g->u.has_trait("PROF_CYBERCOP")) {
+    } else if( g->u.has_trait( trait_id( "PROF_CYBERCOP" ) ) ) {
         // And you're wearing your badge
         if (g->u.is_wearing("badge_cybercop")) {
             if (one_in(3)) {
@@ -2673,7 +2645,7 @@ bool mattack::photograph(monster *z)
         }
     }
 
-    if (g->u.has_trait("PROF_FED")) {
+    if( g->u.has_trait( trait_id( "PROF_FED" ) ) ) {
         // And you're wearing your badge
         if (g->u.is_wearing("badge_marshal")) {
             add_msg(m_info, _("The %s flashes a LED and departs.  The Feds have this."), z->name().c_str());
@@ -2744,6 +2716,7 @@ void mattack::rifle( monster *z, Creature *target )
     npc tmp = make_fake_npc(z, 16, 10, 8, 12);
     tmp.set_skill_level( skill_rifle, 8 );
     tmp.set_skill_level( skill_gun, 6 );
+    tmp.recoil = 0; // no need to aim
 
     if( target == &g->u ) {
         if (!z->has_effect( effect_targeted )) {
@@ -2802,6 +2775,7 @@ void mattack::frag( monster *z, Creature *target ) // This is for the bots, not 
     npc tmp = make_fake_npc(z, 16, 10, 8, 12);
     tmp.set_skill_level( skill_launcher, 8 );
     tmp.set_skill_level( skill_gun, 6 );
+    tmp.recoil = 0; // no need to aim
     z->moves -= 150;   // It takes a while
 
     if (z->ammo[ammo_type] <= 0) {
@@ -2857,16 +2831,14 @@ void mattack::tankgun( monster *z, Creature *target )
     // Target the vehicle itself instead if there is one.
     vehicle *veh = g->m.veh_at( target->pos() );
     if( veh != nullptr ) {
-        veh->center_of_mass( aim_point.x, aim_point.y );
-        point vpos = veh->global_pos();
-        aim_point.x += vpos.x;
-        aim_point.y += vpos.y;
+        aim_point = veh->global_pos3() + veh->rotated_center_of_mass();
     }
     // kevingranade KA101: yes, but make it really inaccurate
     // Sure thing.
     npc tmp = make_fake_npc(z, 12, 8, 8, 8);
     tmp.set_skill_level( skill_launcher, 1 );
     tmp.set_skill_level( skill_gun, 1 );
+    tmp.recoil = 0; // no need to aim
     z->moves -= 150;   // It takes a while
 
     if (z->ammo[ammo_type] <= 0) {
@@ -2915,7 +2887,8 @@ bool mattack::searchlight(monster *z)
             for (int x = zposx - 24; x < zposx + 24; x++)
                 for (int y = zposy - 24; y < zposy + 24; y++) {
                     tripoint dest( x, y, z->posz() );
-                    if (g->mon_at( dest ) != -1 && g->zombie(g->mon_at( dest )).type->id == mon_turret_searchlight) {
+                    const monster *const mon = g->critter_at<monster>( dest );
+                    if( mon && mon->type->id == mon_turret_searchlight ) {
                         if (x < zposx) {
                             settings.set_var( "SL_PREFER_LEFT", "FALSE" );
                         }
@@ -3239,26 +3212,31 @@ bool mattack::chickenbot(monster *z)
     }
 
     int dist = rl_dist( z->pos(), target->pos() );
-    if( dist == 1 && one_in(2) ) {
+    int player_dist = rl_dist( target->pos(), g->u.pos() );
+    if( dist == 1 && one_in( 2 ) ) {
+        // Use tazer at point-blank range, and even then, not continuously.
         mode = 1;
-    } else if( ( dist >= 12) ||
-               ( ( z->friendly != 0 || g->u.in_vehicle ) && dist >= 6 ) ||
-               cap > 2 ) {
+    } else if( ( z->friendly == 0 || player_dist >= 6 ) &&
+               // Avoid shooting near player if we're friendly.
+               ( dist >= 12 || ( g->u.in_vehicle && dist >= 6 ) ) ) {
+               // Only use at long range, unless player is in a vehicle, then tolerate closer targeting.
         mode = 3;
-    } else if( dist >= 4) {
+    } else if( dist >= 4 ) {
+        // Don't use machine gun at very close range, under the assumption that targets at that range can dodge?
         mode = 2;
     }
 
-    if (mode == 0) {
+    if( mode == 0 ) {
         return false;    // No attacks were valid!
     }
 
     if( mode > cap ) {
         mode = cap;
     }
-    switch (mode) {
+    switch( mode ) {
     case 0:
     case 1:
+        // If we downgraded to taze, but are out of range, don't act.
         if( dist <= 1 ) {
             taze( z, target );
         }
@@ -3269,7 +3247,7 @@ bool mattack::chickenbot(monster *z)
         }
         break;
     case 3:
-        if( dist == 38 ) {
+        if( dist <= 38 ) {
             frag( z, target );
         }
         break;
@@ -3481,8 +3459,8 @@ bool mattack::breathe(monster *z)
     bool able = (z->type->id == mon_breather_hub);
     if( !able ) {
         for( const tripoint &dest : g->m.points_in_radius( z->pos(), 3 ) ) {
-            int mondex = g->mon_at(dest);
-            if( mondex != -1 && g->zombie(mondex).type->id == mon_breather_hub ) {
+            monster *const mon = g->critter_at<monster>( dest );
+            if( mon && mon->type->id == mon_breather_hub ) {
                 able = true;
                 break;
             }
@@ -3501,8 +3479,7 @@ bool mattack::breathe(monster *z)
 
     if( !valid.empty() ) {
         const tripoint pt = random_entry( valid );
-        if (g->summon_mon(mon_breather, pt)) {
-            monster *spawned = g->monster_at(pt);
+        if( monster * const spawned = g->summon_mon( mon_breather, pt ) ) {
             spawned->reset_special("BREATHE");
             spawned->make_ally(z);
         }
@@ -3863,8 +3840,7 @@ bool mattack::darkman(monster *z)
     if (!free.empty()) {
         z->moves -= 10;
         const tripoint target = random_entry( free );
-        if (g->summon_mon(mon_shadow, target)) {
-            monster *shadow = g->monster_at( target );
+        if( monster * const shadow = g->summon_mon( mon_shadow, target ) ) {
             shadow->make_ally(z);
         }
         if( g->u.sees( *z ) ) {
@@ -4088,7 +4064,7 @@ bool mattack::riotbot(monster *z)
             handcuffs.set_var( "HANDCUFFS_X", foe->posx() );
             handcuffs.set_var( "HANDCUFFS_Y", foe->posy() );
 
-            const bool is_uncanny = foe->has_active_bionic("bio_uncanny_dodge") && foe->power_level > 74 &&
+            const bool is_uncanny = foe->has_active_bionic( bionic_id( "bio_uncanny_dodge" ) ) && foe->power_level > 74 &&
                                     !one_in(3);
             ///\EFFECT_DEX >13 allows and increases chance to slip out of riot bot handcuffs
             const bool is_dex = foe->dex_cur > 13 && !one_in(foe->dex_cur - 11);
@@ -4518,8 +4494,7 @@ int grenade_helper(monster *const z, Creature *const target, const int dist,
 
     const tripoint where = empty_neighbors.first[get_random_index(empty_neighbor_count)];
 
-    if( g->summon_mon(actor->mtypeid, where ) ) {
-        monster *hack = g->monster_at( where );
+    if( monster * const hack = g->summon_mon( actor->mtypeid, where ) ) {
         hack->make_ally(z);
     }
     return 1;
@@ -4652,9 +4627,9 @@ bool mattack::stretch_attack(monster *z)
     return true;
 }
 
-bool mattack::dodge_check(monster *z, Creature *target){
+bool mattack::dodge_check( monster *z, Creature *target ) {
     ///\EFFECT_DODGE increases chance of dodging, vs their melee skill
-    int dodge = std::max( target->get_dodge() - rng(0, z->type->melee_skill), 0L );
+    float dodge = std::max( target->get_dodge() - rng( 0, z->get_hit() ), 0.0f );
     if (rng(0, 10000) < 10000 / (1 + (99 * exp(-.6 * dodge)))) {
         return true;
     }

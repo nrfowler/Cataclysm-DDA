@@ -1,3 +1,4 @@
+#pragma once
 #ifndef COLOR_H
 #define COLOR_H
 
@@ -326,12 +327,6 @@ class JsonObject;
 
 void init_colors();
 
-enum col_attribute {
-    WA_NULL = 0,
-    HI = 1,
-    INV = 2
-};
-
 // Index for highlight cache
 enum hl_enum {
     HL_BLUE = 0,
@@ -405,6 +400,25 @@ class color_manager : public JsonSerializer, public JsonDeserializer
 
 color_manager &get_all_colors();
 
+/**
+ * For color values that are created *before* the color definitions are loaded
+ * from JSON. One can't use the macros (e.g. c_white) directly as they query
+ * the color_manager, which may not be initialized. Instead one has to use
+ * the color_id (e.g. def_c_white) and translate the id to an actual color
+ * later. This is done by this class: it stores the id and translates it
+ * when needed to the color value.
+ */
+class deferred_color
+{
+    private:
+        color_id id;
+    public:
+        deferred_color( const color_id id ) : id( id ) { }
+        operator nc_color() const {
+            return all_colors.get( id );
+        }
+};
+
 struct note_color {
     nc_color color;
     std::string name;
@@ -426,9 +440,7 @@ nc_color color_from_string( const std::string &color );
 std::string string_from_color( const nc_color color );
 nc_color bgcolor_from_string( std::string color );
 nc_color get_color_from_tag( const std::string &s, const nc_color base_color );
-
-void setattr( nc_color &col, col_attribute attr );
-void load_colors( JsonObject &jo );
+std::string get_tag_from_color( const nc_color color );
 
 nc_color get_note_color( std::string const &note_id );
 std::list<std::pair<std::string, std::string>> get_note_color_names();

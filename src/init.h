@@ -1,3 +1,4 @@
+#pragma once
 #ifndef INIT_H
 #define INIT_H
 
@@ -5,11 +6,11 @@
 
 #include <string>
 #include <vector>
+#include <list>
 #include <memory>
 #include <functional>
 
-class Item_factory;
-class vpart_info;
+class loading_ui;
 
 /**
  * This class is used to load (and unload) the dynamic
@@ -49,13 +50,20 @@ class vpart_info;
  */
 class DynamicDataLoader
 {
-        friend Item_factory;
-        friend vpart_info;
-
     public:
         typedef std::string type_string;
-        typedef std::map<type_string, std::function<void( JsonObject & )>> t_type_function_map;
+        typedef std::map<type_string, std::function<void( JsonObject &, const std::string & )>>
+                t_type_function_map;
         typedef std::vector<std::string> str_vec;
+
+        /**
+         * JSON data dependent upon as-yet unparsed definitions
+         * first: JSON data, second: source identifier
+         */
+        typedef std::list<std::pair<std::string, std::string>> deferred_json;
+
+    private:
+        bool finalized = false;
 
     protected:
         /**
@@ -64,20 +72,24 @@ class DynamicDataLoader
          */
         t_type_function_map type_function_map;
         void add( const std::string &type, std::function<void( JsonObject & )> f );
+        void add( const std::string &type, std::function<void( JsonObject &, const std::string & )> f );
         /**
          * Load all the types from that json data.
          * @param jsin Might contain single object,
          * or an array of objects. Each object must have a
          * "type", that is part of the @ref type_function_map
+         * @param src String identifier for mod this data comes from
+         * @param ui Finalization status display.
          * @throws std::exception on all kind of errors.
          */
-        void load_all_from_json( JsonIn &jsin );
+        void load_all_from_json( JsonIn &jsin, const std::string &src, loading_ui &ui );
         /**
          * Load a single object from a json object.
          * @param jo The json object to load the C++-object from.
+         * @param src String identifier for mod this data comes from
          * @throws std::exception on all kind of errors.
          */
-        void load_object( JsonObject &jo );
+        void load_object( JsonObject &jo, const std::string &src );
 
         DynamicDataLoader();
         ~DynamicDataLoader();
@@ -88,8 +100,9 @@ class DynamicDataLoader
         /**
          * Check the consistency of all the loaded data.
          * May print a debugmsg if something seems wrong.
+         * @param ui Finalization status display.
          */
-        void check_consistency();
+        void check_consistency( loading_ui &ui );
 
     public:
         /**
@@ -102,9 +115,13 @@ class DynamicDataLoader
          * @param path Either a folder (recursively load all
          * files with the extension .json), or a file (load only
          * that file, don't check extension).
+         * @param src String identifier for mod this data comes from
+         * @param ui Finalization status display.
          * @throws std::exception on all kind of errors.
          */
-        void load_data_from_path( const std::string &path );
+        /*@{*/
+        void load_data_from_path( const std::string &path, const std::string &src, loading_ui &ui );
+        /*@}*/
         /**
          * Deletes and unloads all the data previously loaded with
          * @ref load_data_from_path
@@ -116,8 +133,26 @@ class DynamicDataLoader
          * It must be called once after loading all data.
          * It also checks the consistency of the loaded data with
          * @ref check_consistency
+         * @param ui Finalization status display.
+         * @throw std::exception if the loaded data is not valid. The
+         * game should *not* proceed in that case.
          */
+        /*@{*/
         void finalize_loaded_data();
+        void finalize_loaded_data( loading_ui &ui );
+        /*@}*/
+
+        /**
+         * Loads and then removes entries from @param data
+         */
+        void load_deferred( deferred_json &data );
+
+        /**
+         * Returns whether the data is finalized and ready to be utilized.
+         */
+        bool is_data_finalized() const {
+            return finalized;
+        }
 };
 
 void init_names();

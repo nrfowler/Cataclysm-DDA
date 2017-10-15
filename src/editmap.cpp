@@ -28,6 +28,8 @@
 #include "field.h"
 #include "ui.h"
 #include "scent_map.h"
+#include "debug_menu.h"
+#include "string_input_popup.h"
 
 #include <fstream>
 #include <sstream>
@@ -134,7 +136,9 @@ void edit_json( SAVEOBJ *it )
             }
             fs2.clear();
         } else if( tmret == 1 ) {
-            std::string ret = string_input_popup( "test", 50240, save1, "", "jsonedit" );
+            std::string ret = string_input_popup()
+                              .text( save1 )
+                              .query_string();
             if( !ret.empty() ) {
                 fs1 = fld_string( save1, TERMX - 10 );
                 save1 = ret;
@@ -218,7 +222,6 @@ editmap::editmap()
     hilights["mapgentgt"].color = c_cyan;
     hilights["mapgentgt"].setup();
 
-    oter_special.clear();
     uberdraw = false;
 }
 
@@ -239,7 +242,7 @@ void editmap_hilight::draw( editmap *hm, bool update )
             const tripoint &p = elem.first;
             int vpart = 0;
             // but only if there's no vehicles/mobs/npcs on a point
-            if( ! g->m.veh_at( p, vpart ) && ( g->mon_at( p ) == -1 ) && ( g->npc_at( p ) == -1 ) ) {
+            if( ! g->m.veh_at( p, vpart ) && !g->critter_at( p ) ) {
                 const ter_t &terrain = g->m.ter( p ).obj();
                 char t_sym = terrain.symbol();
                 nc_color t_col = terrain.color();
@@ -254,8 +257,8 @@ void editmap_hilight::draw( editmap *hm, bool update )
                     field_id t_ftype = t_field->fieldSymbol();
                     const field_entry *t_fld = t_field->findField( t_ftype );
                     if( t_fld != NULL ) {
-                        t_col =  fieldlist[t_ftype].color[t_fld->getFieldDensity() - 1];
-                        t_sym = fieldlist[t_ftype].sym;
+                        t_col = t_fld->color();
+                        t_sym = t_fld->symbol();
                     }
                 }
                 if( blink_interval[ cur_blink ] == true ) {
@@ -393,9 +396,7 @@ tripoint editmap::edit()
         uphelp( pgettext( "map editor", "[t]rap, [f]ield, [HJKL] move++, [v] showall" ),
                 pgettext( "map editor", "[g] terrain/furn, [o] mapgen, [i]tems, [q]uit" ),
                 pgettext( "map editor state", "Looking around" ) );
-        timeout( BLINK_SPEED );
-        action = ctxt.handle_input();
-        timeout( -1 );
+        action = ctxt.handle_input( BLINK_SPEED );
 
         if( action == "EDIT_TERRAIN" ) {
             edit_ter();
@@ -408,13 +409,11 @@ tripoint editmap::edit()
         } else if( action == "EDITMAP_SHOW_ALL" ) {
             uberdraw = !uberdraw;
         } else if( action == "EDIT_MONSTER" ) {
-            int mon_index = g->mon_at( target );
-            int npc_index = g->npc_at( target );
             int veh_part = -1;
             vehicle *veh = g->m.veh_at( target, veh_part );
-            if( mon_index >= 0 ) {
+            if( g->critter_at<monster>( target ) ) {
                 edit_mon();
-            } else if( npc_index >= 0 ) {
+            } else if( g->critter_at<npc>( target ) ) {
                 edit_npc();
             } else if( veh ) {
                 edit_veh();
@@ -549,7 +548,7 @@ void editmap::update_view( bool update_info )
             const tripoint &p = elem;
             int vpart = 0;
             // but only if there's no vehicles/mobs/npcs on a point
-            if( ! g->m.veh_at( p, vpart ) && ( g->mon_at( p ) == -1 ) && ( g->npc_at( p ) == -1 ) ) {
+            if( ! g->m.veh_at( p, vpart ) && !g->critter_at( p ) ) {
                 const ter_t &terrain = g->m.ter( p ).obj();
                 char t_sym = terrain.symbol();
                 nc_color t_col = terrain.color();
@@ -565,8 +564,8 @@ void editmap::update_view( bool update_info )
                     field_id t_ftype = t_field->fieldSymbol();
                     const field_entry *t_fld = t_field->findField( t_ftype );
                     if( t_fld != NULL ) {
-                        t_col =  fieldlist[t_ftype].color[t_fld->getFieldDensity() - 1];
-                        t_sym = fieldlist[t_ftype].sym;
+                        t_col = t_fld->color();
+                        t_sym = t_fld->symbol();
                     }
                 }
                 t_col = ( altblink == true ? green_background( t_col ) : cyan_background( t_col ) );
@@ -599,21 +598,21 @@ void editmap::update_view( bool update_info )
         int off = 1;
         draw_border( w_info );
 
-        mvwprintz( w_info, 0, 2 , c_ltgray, "< %d,%d >", target.x, target.y );
+        mvwprintz( w_info, 0, 2, c_ltgray, "< %d,%d >", target.x, target.y );
         for( int i = 1; i < infoHeight - 2; i++ ) { // clear window
             mvwprintz( w_info, i, 1, c_white, padding.c_str() );
         }
 
         mvwputch( w_info, off, 2, terrain_type.color(), terrain_type.symbol() );
         mvwprintw( w_info, off, 4, _( "%d: %s; movecost %d" ), g->m.ter( target ),
-                   terrain_type.name.c_str(),
+                   terrain_type.name().c_str(),
                    terrain_type.movecost
                  );
         off++; // 2
         if( g->m.furn( target ) > 0 ) {
             mvwputch( w_info, off, 2, furniture_type.color(), furniture_type.symbol() );
             mvwprintw( w_info, off, 4, _( "%d: %s; movecost %d movestr %d" ), g->m.furn( target ),
-                       furniture_type.name.c_str(),
+                       furniture_type.name().c_str(),
                        furniture_type.movecost,
                        furniture_type.move_str_req
                      );
@@ -622,7 +621,8 @@ void editmap::update_view( bool update_info )
         const auto &map_cache = g->m.get_cache( target.z );
 
         mvwprintw( w_info, off++, 1, _( "dist: %d u_see: %d v_in: %d scent: %d" ),
-                   rl_dist( g->u.pos(), target ), g->u.sees( target ), veh_in, g->scent( target ) );
+                   rl_dist( g->u.pos(), target ), g->u.sees( target ),
+                   veh_in, g->scent.get( target ) );
         mvwprintw( w_info, off++, 1, _( "sight_range: %d, daylight_sight_range: %d," ),
                    g->u.sight_range( g->light_level( g->u.posz() ) ), g->u.sight_range( DAYLIGHT_LEVEL ) );
         mvwprintw( w_info, off++, 1, _( "transparency: %.5f, visibility: %.5f," ),
@@ -648,9 +648,9 @@ void editmap::update_view( bool update_info )
 
         for( auto &fld : *cur_field ) {
             const field_entry *cur = &fld.second;
-            mvwprintz( w_info, off, 1, fieldlist[cur->getFieldType()].color[cur->getFieldDensity() - 1],
+            mvwprintz( w_info, off, 1, cur->color(),
                        _( "field: %s (%d) density %d age %d" ),
-                       fieldlist[cur->getFieldType()].name[cur->getFieldDensity() - 1].c_str(), cur->getFieldType(),
+                       cur->name().c_str(), cur->getFieldType(),
                        cur->getFieldDensity(), cur->getFieldAge()
                      );
             off++; // 5ish
@@ -659,7 +659,7 @@ void editmap::update_view( bool update_info )
 
         if( cur_trap != tr_null ) {
             auto &t = cur_trap.obj();
-            mvwprintz( w_info, off, 1, t.color, _( "trap: %s (%d)" ), t.name.c_str(), cur_trap.to_i() );
+            mvwprintz( w_info, off, 1, t.color, _( "trap: %s (%d)" ), t.name().c_str(), cur_trap.to_i() );
             off++; // 6
         }
 
@@ -823,7 +823,7 @@ int editmap::edit_ter()
             for( int x = xmin; x < pickw && cur_t < ( int ) ter_t::count(); x++, cur_t++ ) {
                 const ter_id tid( cur_t );
                 const ter_t &ttype = tid.obj();
-                mvwputch( w_pickter, y, x, ( ter_frn_mode == 0 ? ttype.color() : c_dkgray ) , ttype.symbol() );
+                mvwputch( w_pickter, y, x, ( ter_frn_mode == 0 ? ttype.color() : c_dkgray ), ttype.symbol() );
                 if( tid == sel_ter ) {
                     sel_terp = tripoint( x, y, target.z );
                 } else if( tid == lastsel_ter ) {
@@ -860,7 +860,7 @@ int editmap::edit_ter()
             }
 
             mvwprintw( w_pickter, 0, 2, "< %s[%d]: %s >", pttype.id.c_str(), pttype.id.id().to_i(),
-                       pttype.name.c_str() );
+                       pttype.name().c_str() );
             mvwprintz( w_pickter, off, 2, c_white, _( "movecost %d" ), pttype.movecost );
             std::string extras = "";
             if( pttype.has_flag( TFLAG_INDOORS ) ) {
@@ -915,7 +915,7 @@ int editmap::edit_ter()
             }
 
             mvwprintw( w_pickter, 0, 2, "< %s[%d]: %s >", pftype.id.c_str(), pftype.id.id().to_i(),
-                       pftype.name.c_str() );
+                       pftype.name().c_str() );
             mvwprintz( w_pickter, off, 2, c_white, _( "movecost %d" ), pftype.movecost );
             std::string fextras = "";
             if( pftype.has_flag( TFLAG_INDOORS ) ) {
@@ -1068,12 +1068,12 @@ int editmap::edit_ter()
 void editmap::update_fmenu_entry( uimenu *fmenu, field *field, const field_id idx )
 {
     int fdens = 1;
-    field_t ftype = fieldlist[idx];
+    const field_t &ftype = fieldlist[idx];
     field_entry *fld = field->findField( ( field_id )idx );
     if( fld != NULL ) {
         fdens = fld->getFieldDensity();
     }
-    fmenu->entries[idx].txt = ( ftype.name[fdens - 1].empty() ? fids[idx] : ftype.name[fdens - 1] );
+    fmenu->entries[idx].txt = ftype.name( fdens - 1 );
     if( fld != NULL ) {
         fmenu->entries[idx].txt += " " + std::string( fdens, '*' );
     }
@@ -1087,9 +1087,9 @@ void editmap::setup_fmenu( uimenu *fmenu )
     fmenu->entries.clear();
     for( int i = 0; i < num_fields; i++ ) {
         const field_id fid = static_cast<field_id>( i );
-        field_t ftype = fieldlist[fid];
+        const field_t &ftype = fieldlist[fid];
         int fdens = 1;
-        fname = ( ftype.name[fdens - 1].empty() ? fids[fid] : ftype.name[fdens - 1] );
+        fname = ftype.name( fdens - 1 );
         fmenu->addentry( fid, true, -2, "%s", fname.c_str() );
         fmenu->entries[fid].extratxt.left = 1;
         fmenu->entries[fid].extratxt.txt = string_format( "%c", ftype.sym );
@@ -1136,15 +1136,14 @@ int editmap::edit_fld()
                 femenu.w_x = offsetX;
 
                 femenu.return_invalid = true;
-                field_t ftype = fieldlist[idx];
-                int fidens = ( fdens == 0 ? 0 : fdens - 1 );
-                femenu.text = ( ftype.name[fidens].empty() ? fids[idx] : ftype.name[fidens] );
+                const field_t &ftype = fieldlist[idx];
+                femenu.text = ftype.name( fdens == 0 ? 0 : fdens - 1 );
                 femenu.addentry( pgettext( "map editor: used to describe a clean field (eg. without blood)",
                                            "-clear-" ) );
 
-                femenu.addentry( "1: %s", ( ftype.name[0].empty() ? fids[idx].c_str() : ftype.name[0].c_str() ) );
-                femenu.addentry( "2: %s", ( ftype.name[1].empty() ? fids[idx].c_str() : ftype.name[1].c_str() ) );
-                femenu.addentry( "3: %s", ( ftype.name[2].empty() ? fids[idx].c_str() : ftype.name[2].c_str() ) );
+                femenu.addentry( "1: %s", ftype.name( 0 ).c_str() );
+                femenu.addentry( "2: %s", ftype.name( 1 ).c_str() );
+                femenu.addentry( "3: %s", ftype.name( 2 ).c_str() );
                 femenu.entries[fdens].text_color = c_cyan;
                 femenu.selected = ( sel_fdensity > 0 ? sel_fdensity : fdens );
 
@@ -1255,9 +1254,9 @@ int editmap::edit_trp()
                 if( tr.is_null() ) {
                     tnam = _( "-clear-" );
                 } else {
-                    if( tr.name.length() > 0 ) {
+                    if( tr.name().length() > 0 ) {
                         //~ trap editor list entry. 1st string is display name, 2nd string is internal name of trap
-                        tnam = string_format( _( "%s (%s)" ), tr.name.c_str(), tr.id.c_str() );
+                        tnam = string_format( _( "%s (%s)" ), tr.name().c_str(), tr.id.c_str() );
                     } else {
                         tnam = tr.id.str();
                     }
@@ -1278,7 +1277,7 @@ int editmap::edit_trp()
         } else if( action == "CONFIRM" || action == "CONFIRM_QUIT" ) {
             trset = trsel;
             for( auto &elem : target_list ) {
-                g->m.add_trap( elem, trset );
+                g->m.trap_set( elem, trset );
             }
             if( action == "CONFIRM_QUIT" ) {
                 break;
@@ -1341,9 +1340,9 @@ int editmap::edit_itm()
             imenu.w_height = TERMX - ilmenu.w_height;
             imenu.w_width = ilmenu.w_width;
             imenu.addentry( imenu_bday, true, -1, pgettext( "item manipulation debug menu entry", "bday: %d" ),
-                            ( int )it->bday );
+                            it->birthday() );
             imenu.addentry( imenu_damage, true, -1, pgettext( "item manipulation debug menu entry",
-                            "damage: %d" ), ( int )it->damage );
+                            "damage: %d" ), it->damage() );
             imenu.addentry( imenu_burnt, true, -1, pgettext( "item manipulation debug menu entry",
                             "burnt: %d" ), ( int )it->burnt );
             imenu.addentry( imenu_sep, false, 0, pgettext( "item manipulation debug menu entry",
@@ -1358,25 +1357,27 @@ int editmap::edit_itm()
                     int intval = -1;
                     switch( imenu.ret ) {
                         case imenu_bday:
-                            intval = ( int )it->bday;
+                            intval = it->birthday();
                             break;
                         case imenu_damage:
-                            intval = ( int )it->damage;
+                            intval = it->damage();
                             break;
                         case imenu_burnt:
                             intval = ( int )it->burnt;
                             break;
                     }
-                    int retval = std::atoi(
-                                     string_input_popup( "set: ", 20, to_string( intval ) ).c_str()
-                                 );
+                    int retval = string_input_popup()
+                                 .title( "set: " )
+                                 .width( 20 )
+                                 .text( to_string( intval ) )
+                                 .query_int();
                     if( intval != retval ) {
                         if( imenu.ret == imenu_bday ) {
-                            it->bday = retval;
-                            imenu.entries[imenu_bday].txt = string_format( "bday: %d", it->bday );
+                            it->set_birthday( retval );
+                            imenu.entries[imenu_bday].txt = string_format( "bday: %d", it->birthday() );
                         } else if( imenu.ret == imenu_damage ) {
-                            it->damage = retval;
-                            imenu.entries[imenu_damage].txt = string_format( "damage: %d", it->damage );
+                            it->set_damage( retval );
+                            imenu.entries[imenu_damage].txt = string_format( "damage: %d", it->damage() );
                         } else if( imenu.ret == imenu_burnt ) {
                             it->burnt = retval;
                             imenu.entries[imenu_burnt].txt = string_format( "burnt: %d", it->burnt );
@@ -1394,7 +1395,7 @@ int editmap::edit_itm()
             wrefresh( w_info );
         } else if( ilmenu.ret == -5 ) {
             ilmenu.ret = UIMENU_INVALID;
-            g->wishitem( nullptr, target.x, target.y, target.z );
+            debug_menu::wishitem( nullptr, target.x, target.y, target.z );
             ilmenu.entries.clear();
             i = 0;
             for( auto &an_item : items ) {
@@ -1419,8 +1420,7 @@ int editmap::edit_itm()
 int editmap::edit_mon()
 {
     int ret = 0;
-    int mon_index = g->mon_at( target );
-    monster *it = &g->zombie( mon_index );
+    monster *it = g->critter_at<monster>( target );
     edit_json( it );
     return ret;
 }
@@ -1538,9 +1538,9 @@ bool editmap::move_target( const std::string &action, int moveorigin )
 int editmap::edit_npc()
 {
     int ret = 0;
-    int npc_index = g->npc_at( target );
-    npc *it = g->active_npc[npc_index];
-    edit_json( it );
+    if( npc *const it = g->critter_at<npc>( target ) ) {
+        edit_json( it );
+    }
     return ret;
 }
 
@@ -1584,9 +1584,7 @@ int editmap::select_shape( shapetype shape, int mode )
               _( "[m]move, [s]hape, [y] swap, [z] to start" ) ),
             _( "[enter] accept, [q] abort, [v] showall" ),
             ( moveall == true ? _( "Moving selection" ) : _( "Resizing selection" ) ) );
-        timeout( BLINK_SPEED );
-        action = ctxt.handle_input();
-        timeout( -1 );
+        action = ctxt.handle_input( BLINK_SPEED );
         if( action == "RESIZE" ) {
             if( ! moveall ) {
                 const int offset = g->right_sidebar ? -16 : 16;
@@ -1685,7 +1683,7 @@ int editmap::mapgen_preview( real_coords &tc, uimenu &gmenu )
     oter_id &omt_ref = overmap_buffer.ter( omt_pos.x, omt_pos.y, target.z );
     // Copy to store the original value, to restore it upon canceling
     const oter_id orig_oters = omt_ref;
-    omt_ref = gmenu.ret;
+    omt_ref = oter_id( gmenu.ret );
     tinymap tmpmap;
     // TODO: add a do-not-save-generated-submaps parameter
     // TODO: keep track of generated submaps to delete them properly and to avoid memory leaks
@@ -1714,14 +1712,14 @@ int editmap::mapgen_preview( real_coords &tc, uimenu &gmenu )
     gpmenu.show();
     uphelp( _( "[pgup/pgdn]: prev/next oter type" ),
             _( "[up/dn] select, [enter] accept, [q] abort" ),
-            string_format( "Mapgen: %s", oterlist[gmenu.ret].id.substr( 0, 40 ).c_str() )
+            string_format( "Mapgen: %s", oter_id( gmenu.ret ).id().str().substr( 0, 40 ).c_str() )
           );
     int lastsel = gmenu.selected;
     bool showpreview = true;
     do {
         if( gmenu.selected != lastsel ) {
             lastsel = gmenu.selected;
-            omt_ref = gmenu.selected;
+            omt_ref = oter_id( gmenu.selected );
             cleartmpmap( tmpmap );
             tmpmap.generate( omt_pos.x * 2, omt_pos.y * 2, target.z, calendar::turn );
             showpreview = true;
@@ -1740,13 +1738,13 @@ int editmap::mapgen_preview( real_coords &tc, uimenu &gmenu )
         } else {
             update_view( false ); //wrefresh(g->w_terrain);
         }
-        timeout( BLINK_SPEED * 3 );
+        inp_mngr.set_timeout( BLINK_SPEED * 3 );
         int gpmenupos = gpmenu.selected;
         gpmenu.query( false );
 
         if( gpmenu.keypress != ERR ) {
             if( gpmenu.ret != UIMENU_INVALID ) {
-                timeout( -1 );
+                inp_mngr.reset_timeout();
                 if( gpmenu.ret == 0 ) {
 
                     cleartmpmap( tmpmap );
@@ -1835,8 +1833,8 @@ int editmap::mapgen_preview( real_coords &tc, uimenu &gmenu )
 
                 } else if( gpmenu.ret == 3 ) {
                     popup( _( "Changed oter_id from '%s' (%s) to '%s' (%s)" ),
-                           orig_oters.t().name.c_str(), orig_oters.c_str(),
-                           omt_ref.t().name.c_str(), omt_ref.c_str() );
+                           orig_oters->get_name().c_str(), orig_oters.id().c_str(),
+                           omt_ref->get_name().c_str(), omt_ref.id().c_str() );
                 }
             } else if( gpmenu.keypress == 'm' ) {
                 // todo; keep preview as is and move target
@@ -1854,7 +1852,7 @@ int editmap::mapgen_preview( real_coords &tc, uimenu &gmenu )
         }
     } while( gpmenu.ret != 2 && gpmenu.ret != 3 && gpmenu.ret != 4 );
 
-    timeout( -1 );
+    inp_mngr.reset_timeout();
     werase( w_preview );
     wrefresh( w_preview );
     delwin( w_preview );
@@ -1895,9 +1893,7 @@ int editmap::mapgen_retarget()
                     "Mapgen: Moving target" ) );
 
     do {
-        timeout( BLINK_SPEED );
-        action = ctxt.handle_input();
-        timeout( -1 );
+        action = ctxt.handle_input( BLINK_SPEED );
         blink = !blink;
         if( ctxt.get_direction( omx, omy, action ) ) {
             tripoint ptarget = tripoint( target.x + ( omx * 24 ), target.y + ( omy * 24 ), target.z );
@@ -1924,36 +1920,46 @@ int editmap::mapgen_retarget()
     return ret;
 }
 
+class edit_mapgen_callback : public uimenu_callback
+{
+    private:
+        editmap *_e;
+    public:
+        edit_mapgen_callback( editmap *e ) {
+            _e = e;
+        };
+        bool key( const input_context &, const input_event &event, int /*entnum*/, uimenu *menu ) override {
+            if( event.get_first_input() == 'm' ) {
+                _e->mapgen_retarget();
+                menu->ret = -1;
+                return true;
+            }
+            return false;
+        }
+};
+
 /*
  * apply mapgen to a temporary map and overlay over terrain window, optionally regenerating, rotating, and applying to the real in-game map
  */
 int editmap::edit_mapgen()
 {
     int ret = 0;
-    tripoint orig = target;
     uimenu gmenu;
     gmenu.w_width = width;
     gmenu.w_height = TERMY - infoHeight;
     gmenu.w_y = 0;
     gmenu.w_x = offsetX;
+    edit_mapgen_callback cb( this );
+    gmenu.callback = &cb;
     gmenu.return_invalid = true;
 
-    std::map<std::string, bool> broken_oter_blacklist;
-    broken_oter_blacklist[""] = true;
-    broken_oter_blacklist["road_null"] = true;
-    broken_oter_blacklist["nuke_plant_entrance"] = true;
-    broken_oter_blacklist["nuke_plant"] = true;
-    broken_oter_blacklist["temple_core"] = true;
+    for( size_t i = 0; i < overmap_terrains::count(); i++ ) {
+        const oter_id id( i );
 
-    for( size_t i = 0; i < oterlist.size(); i++ ) {
-        oter_id id = oter_id( i );
-        gmenu.addentry( -1, true, 0, "[%3d] %s", ( int )id, std::string( id ).c_str() );
-        if( broken_oter_blacklist.find( id ) != broken_oter_blacklist.end() ) {
-            gmenu.entries[i].enabled = false;
-        }
+        gmenu.addentry( -1, !id.id().is_null(), 0, "[%3d] %s", ( int )id, id.id().c_str() );
         gmenu.entries[i].extratxt.left = 1;
-        gmenu.entries[i].extratxt.color = otermap[id].color;
-        gmenu.entries[i].extratxt.txt = string_format( "%c", otermap[id].sym );
+        gmenu.entries[i].extratxt.color = id->get_color();
+        gmenu.entries[i].extratxt.txt = string_format( "%c", id->get_sym() );
     }
     real_coords tc;
     do {
@@ -1984,11 +1990,6 @@ int editmap::edit_mapgen()
 
         if( gmenu.ret > 0 ) {
             mapgen_preview( tc, gmenu );
-        } else {
-            if( gmenu.keypress == 'm' ) {
-                mapgen_retarget();
-
-            }
         }
     } while( ! menu_escape( gmenu.keypress ) );
     return ret;

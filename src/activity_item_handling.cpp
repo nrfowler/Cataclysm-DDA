@@ -15,11 +15,14 @@
 #include "veh_type.h"
 #include "player.h"
 #include "debug.h"
+#include "pickup.h"
 
 #include <list>
 #include <vector>
 #include <cassert>
 #include <algorithm>
+
+void cancel_aim_processing();
 
 const efftype_id effect_controlled( "controlled" );
 const efftype_id effect_pet( "pet" );
@@ -61,12 +64,17 @@ void put_into_vehicle( player &p, const std::list<item> &items, vehicle &veh, in
             p.add_msg_player_or_npc(
                 _( "To avoid spilling its contents, you set your %1$s on the %2$s." ),
                 _( "To avoid spilling its contents, <npcname> sets their %1$s on the %2$s." ),
-                it.display_name().c_str(), ter_name.c_str() );
-            g->m.add_item_or_charges( where, it, 2 );
+                it.display_name().c_str(), ter_name.c_str()
+            );
+            g->m.add_item_or_charges( where, it );
             continue;
         }
         if( !veh.add_item( part, it ) ) {
-            g->m.add_item_or_charges( where, it, 1 );
+            if( it.count_by_charges() ) {
+                // Maybe we can add a few charges in the trunk and the rest on the ground.
+                it.mod_charges( -veh.add_charges( part, it ) );
+            }
+            g->m.add_item_or_charges( where, it );
             ++fallen_count;
         }
     }
@@ -76,11 +84,20 @@ void put_into_vehicle( player &p, const std::list<item> &items, vehicle &veh, in
     if( same_type( items ) ) {
         const item &it = items.front();
         const int dropcount = items.size() * ( it.count_by_charges() ? it.charges : 1 );
-        add_msg( ngettext( "You put your %1$s in the %2$s's %3$s.",
-                           "You put your %1$s in the %2$s's %3$s.", dropcount ),
-                 it.tname( dropcount ).c_str(), veh.name.c_str(), part_name.c_str() );
+
+        p.add_msg_player_or_npc(
+            ngettext( "You put your %1$s in the %2$s's %3$s.",
+                      "You put your %1$s in the %2$s's %3$s.", dropcount ),
+            ngettext( "<npcname> puts their %1$s in the %2$s's %3$s.",
+                      "<npcname> puts their %1$s in the %2$s's %3$s.", dropcount ),
+            it.tname( dropcount ).c_str(), veh.name.c_str(), part_name.c_str()
+        );
     } else {
-        add_msg( _( "You put several items in the %1$s's %2$s." ), veh.name.c_str(), part_name.c_str() );
+        p.add_msg_player_or_npc(
+            _( "You put several items in the %1$s's %2$s." ),
+            _( "<npcname> puts several items in the %1$s's %2$s." ),
+            veh.name.c_str(), part_name.c_str()
+        );
     }
 
     if( fallen_count > 0 ) {
@@ -90,8 +107,9 @@ void put_into_vehicle( player &p, const std::list<item> &items, vehicle &veh, in
 
 void stash_on_pet( const std::list<item> &items, monster &pet )
 {
-    int remaining_volume = pet.inv.empty() ? 0 : pet.inv.front().get_storage();
-    int remaining_weight = pet.weight_capacity();
+    units::volume remaining_volume = pet.inv.empty() ? units::volume( 0 ) :
+                                     pet.inv.front().get_storage();
+    units::mass remaining_weight = pet.weight_capacity();
 
     for( const auto &it : pet.inv ) {
         remaining_volume -= it.volume();
@@ -103,11 +121,11 @@ void stash_on_pet( const std::list<item> &items, monster &pet )
         if( it.volume() > remaining_volume ) {
             add_msg( m_bad, _( "%1$s did not fit and fell to the %2$s." ),
                      it.display_name().c_str(), g->m.name( pet.pos() ).c_str() );
-            g->m.add_item_or_charges( pet.pos(), it, 1 );
+            g->m.add_item_or_charges( pet.pos(), it );
         } else if( it.weight() > remaining_weight ) {
             add_msg( m_bad, _( "%1$s is too heavy and fell to the %2$s." ),
                      it.display_name().c_str(), g->m.name( pet.pos() ).c_str() );
-            g->m.add_item_or_charges( pet.pos(), it, 1 );
+            g->m.add_item_or_charges( pet.pos(), it );
         } else {
             pet.add_item( it );
             remaining_volume -= it.volume();
@@ -116,7 +134,7 @@ void stash_on_pet( const std::list<item> &items, monster &pet )
     }
 }
 
-void drop_on_map( const std::list<item> &items, const tripoint &where )
+void drop_on_map( const player &p, const std::list<item> &items, const tripoint &where )
 {
     if( items.empty() ) {
         return;
@@ -130,25 +148,44 @@ void drop_on_map( const std::list<item> &items, const tripoint &where )
         const std::string it_name = it.tname( dropcount );
 
         if( can_move_there ) {
-            add_msg( ngettext( "You drop your %1$s on the %2$s.",
-                               "You drop your %1$s on the %2$s.", dropcount ), it_name.c_str(), ter_name.c_str() );
+            p.add_msg_player_or_npc(
+                ngettext( "You drop your %1$s on the %2$s.",
+                          "You drop your %1$s on the %2$s.", dropcount ),
+                ngettext( "<npcname> drops their %1$s on the %2$s.",
+                          "<npcname> drops their %1$s on the %2$s.", dropcount ),
+                it_name.c_str(), ter_name.c_str()
+            );
         } else {
-            add_msg( ngettext( "You put your %1$s in the %2$s.",
-                               "You put your %1$s in the %2$s.", dropcount ), it_name.c_str(), ter_name.c_str() );
+            p.add_msg_player_or_npc(
+                ngettext( "You put your %1$s in the %2$s.",
+                          "You put your %1$s in the %2$s.", dropcount ),
+                ngettext( "<npcname> puts their %1$s in the %2$s.",
+                          "<npcname> puts their %1$s in the %2$s.", dropcount ),
+                it_name.c_str(), ter_name.c_str()
+            );
         }
     } else {
         if( can_move_there ) {
-            add_msg( _( "You drop several items on the %s." ), ter_name.c_str() );
+            p.add_msg_player_or_npc(
+                _( "You drop several items on the %s." ),
+                _( "<npcname> drops several items on the %s." ),
+                ter_name.c_str()
+            );
         } else {
-            add_msg( _( "You put several items in the %s." ), ter_name.c_str() );
+            p.add_msg_player_or_npc(
+                _( "You put several items in the %s." ),
+                _( "<npcname> puts several items in the %s." ),
+                ter_name.c_str()
+            );
         }
     }
     for( const auto &it : items ) {
-        g->m.add_item_or_charges( where, it, 2 );
+        g->m.add_item_or_charges( where, it );
     }
 }
 
-void put_into_vehicle_or_drop( player &p, const std::list<item> &items, const tripoint &where )
+void put_into_vehicle_or_drop( player &p, const std::list<item> &items,
+                               const tripoint &where )
 {
     int veh_part = 0;
     vehicle *veh = g->m.veh_at( where, veh_part );
@@ -159,7 +196,7 @@ void put_into_vehicle_or_drop( player &p, const std::list<item> &items, const tr
             return;
         }
     }
-    drop_on_map( items, where );
+    drop_on_map( p, items, where );
 }
 
 drop_indexes convert_to_indexes( const player_activity &act )
@@ -257,8 +294,8 @@ std::list<act_item> reorder_for_dropping( const player &p, const drop_indexes &d
                     && !second.it->is_worn_only_with( *first.it ) );
     } );
 
-    int storage_loss = 0;                        // Cumulatively increases
-    int remaining_storage = p.volume_capacity(); // Cumulatively decreases
+    units::volume storage_loss = 0;                        // Cumulatively increases
+    units::volume remaining_storage = p.volume_capacity(); // Cumulatively decreases
 
     while( !worn.empty() && !inv.empty() ) {
         storage_loss += worn.front().it->get_storage();
@@ -326,7 +363,7 @@ std::list<item> obtain_activity_items( player_activity &act, player &p )
         items.pop_front();
     }
     // Avoid tumbling to the ground. Unload cleanly.
-    const int excessive_volume = p.volume_carried() - p.volume_capacity();
+    const units::volume excessive_volume = p.volume_carried() - p.volume_capacity();
     if( excessive_volume > 0 ) {
         const auto excess = p.inv.remove_randomly_by_volume( excessive_volume );
         res.insert( res.begin(), excess.begin(), excess.end() );
@@ -359,7 +396,7 @@ void activity_handlers::stash_do_turn( player_activity *act, player *p )
 {
     const tripoint pos = act->placement + p->pos();
 
-    monster *pet = dynamic_cast<monster *>( g->critter_at( pos ) );
+    monster *pet = g->critter_at<monster>( pos );
     if( pet != nullptr && pet->has_effect( effect_pet ) ) {
         stash_on_pet( obtain_activity_items( *act, *p ), *pet );
     } else {
@@ -393,11 +430,11 @@ void activity_on_turn_pickup()
     }
     g->u.cancel_activity();
 
-    Pickup::do_pickup( pickup_target, from_vehicle, indices, quantities, autopickup );
+    bool keep_going = Pickup::do_pickup( pickup_target, from_vehicle, indices, quantities, autopickup );
 
     // If there are items left, we ran out of moves, so make a new activity with the remainder.
-    if( !indices.empty() ) {
-        g->u.assign_activity( ACT_PICKUP, 0 );
+    if( keep_going && !indices.empty() ) {
+        g->u.assign_activity( activity_id( "ACT_PICKUP" ) );
         g->u.activity.placement = pickup_target;
         g->u.activity.auto_resume = autopickup;
         g->u.activity.values.push_back( from_vehicle );
@@ -407,6 +444,11 @@ void activity_on_turn_pickup()
             g->u.activity.values.push_back( quantities.front() );
             quantities.pop_front();
         }
+    }
+
+    // @todo Move this to advanced inventory instead of hacking it in here
+    if( !keep_going ) {
+        cancel_aim_processing();
     }
 }
 
@@ -468,23 +510,11 @@ static void move_items( const tripoint &src, bool from_vehicle,
 
         // Check that we can pick it up.
         if( !temp_item->made_of( LIQUID ) ) {
-            // Is it too bulky? We'll have to use our hands, then.
-            if( !g->u.can_pickVolume( *temp_item ) && g->u.is_armed() ) {
-                g->u.moves -= 20; // Pretend to be unwielding our gun.
-            }
-
-            // Is it too heavy? It'll take a while...
-            if( !g->u.can_pickWeight( *temp_item, true ) ) {
-                int overweight = temp_item->weight() - ( g->u.weight_capacity() - g->u.weight_carried() );
-
-                // ...like one move cost per 100 grams over your leftover carry capacity.
-                g->u.moves -= int( overweight / 100 );
-            }
-
+            g->u.mod_moves( -Pickup::cost_to_move_item( g->u, *temp_item ) );
             if( to_vehicle ) {
                 put_into_vehicle_or_drop( g->u, { *temp_item }, destination );
             } else {
-                drop_on_map( { *temp_item }, destination );
+                drop_on_map( g->u, { *temp_item }, destination );
             }
             // Remove from map or vehicle.
             if( from_vehicle == true ) {
@@ -492,7 +522,6 @@ static void move_items( const tripoint &src, bool from_vehicle,
             } else {
                 g->m.i_rem( source, index );
             }
-            g->u.mod_moves( -200 ); // I kept the logic. -100 from 'drop' and -100 was here.
         }
 
         // If we didn't pick up a whole stack, put the remainder back where it came from.
@@ -545,7 +574,7 @@ void activity_on_turn_move_items()
     move_items( source, from_vehicle, destination, to_vehicle, indices, quantities );
 
     if( !indices.empty() ) {
-        g->u.assign_activity( ACT_MOVE_ITEMS, 0 );
+        g->u.assign_activity( activity_id( "ACT_MOVE_ITEMS" ) );
         g->u.activity.placement = source;
         g->u.activity.coords.push_back( destination );
         g->u.activity.values.push_back( from_vehicle );

@@ -1,3 +1,4 @@
+#pragma once
 #ifndef UI_H
 #define UI_H
 
@@ -5,8 +6,10 @@
 #include <stdlib.h>
 #include "color.h"
 #include "cursesdef.h"
+#include "printf_check.h"
+
 ////////////////////////////////////////////////////////////////////////////////////
-/*
+/**
  * uimenu constants
  */
 const int UIMENU_INVALID = -1024;
@@ -16,7 +19,10 @@ const int MENU_ALIGN_RIGHT = 1;
 const int MENU_WIDTH_ENTRIES = -2;
 const int MENU_AUTOASSIGN = -1;
 
-/*
+struct input_event;
+class input_context;
+
+/**
  * mvwzstr: line of text with horizontal offset and color
  */
 
@@ -27,15 +33,16 @@ struct mvwzstr {
     long sym = 0;
 };
 
-/*
+/**
  * uimenu_entry: entry line for uimenu
  */
 struct uimenu_entry {
-    int retval;           // return this int
-    bool enabled;         // darken, and forbid scrolling if hilight_disabled is false
-    int hotkey;           // keycode from (int)getch(). -1: automagically pick first free character: 1-9 a-z A-Z
-    std::string txt;      // what it says on the tin
-    std::string desc;     // optional, possibly longer, description
+    int retval;                 // return this int
+    bool enabled;               // darken, and forbid scrolling if hilight_disabled is false
+    bool force_color = false;   // Never darken this option
+    int hotkey;                 // keycode from (int)getch(). -1: automagically pick first free character: 1-9 a-z A-Z
+    std::string txt;            // what it says on the tin
+    std::string desc;           // optional, possibly longer, description
     nc_color hotkey_color;
     nc_color text_color;
     mvwzstr extratxt;
@@ -64,7 +71,7 @@ struct uimenu_entry {
         hotkey_color( H ), text_color( C ) {};
 };
 
-/*
+/**
  * Virtual base class for windowed ui stuff (like uimenu)
  */
 class ui_container
@@ -78,7 +85,7 @@ class ui_container
         virtual void refresh( bool refresh_children = true ) = 0;
 };
 
-/*
+/**
  * Generic multi-function callback for highlighted items, key presses, and window control. Example:
  *
  * class monmenu_cb: public uimenu_callback {
@@ -104,22 +111,28 @@ class ui_container
  *
  */
 class uimenu;
+/**
+* uimenu::query() handles most input events first,
+* and then passes the event to the callback if it can't handle it.
+*
+* The callback returninig a boolean false signifies that the callback can't "handle the
+* event completely". This is unchanged before or after the PR.
+* @{
+*/
 class uimenu_callback
 {
     public:
-        void *myptr;
-        void setptr( void *ptr ) {
-            myptr = ptr;
-        }
         virtual void select( int /*entnum*/, uimenu * ) {};
-        virtual bool key( int /*key*/, int /*entnum*/, uimenu * ) {
+        virtual bool key( const input_context &, const input_event &/*key*/, int /*entnum*/,
+                          uimenu * ) {
             return false;
         };
         virtual void refresh( uimenu * ) {};
         virtual void redraw( uimenu * ) {};
         virtual ~uimenu_callback() {};
 };
-/*
+/*@}*/
+/**
  * uimenu: scrolling vertical list menu
  */
 class ui_element;
@@ -132,6 +145,8 @@ class uimenu: public ui_container
         int keypress;
         std::string text;
         std::vector<std::string> textformatted;
+        std::string input_category;
+        std::vector< std::pair<std::string, std::string> > additional_actions;
         int textwidth;
         int textalign;
         int max_entry_len;
@@ -184,7 +199,9 @@ class uimenu: public ui_container
         void init();
         void setup();
         void show();
-        bool scrollby( int scrollby = 0, const int key = 0 );
+        bool scrollby( int scrollby );
+        int scroll_amount_from_key( const int key );
+        int scroll_amount_from_action( const std::string &action );
         void query( bool loop = true );
         void filterlist();
         void apply_scrollbar();
@@ -192,13 +209,13 @@ class uimenu: public ui_container
         void refresh( bool refresh_callback = true ) override;
         void redraw( bool redraw_callback = true );
         void addentry( std::string str );
-        void addentry( const char *format, ... );
+        void addentry( const char *format, ... ) PRINTF_LIKE( 2, 3 );
         void addentry( int r, bool e, int k, std::string str );
-        void addentry( int r, bool e, int k, const char *format, ... );
+        void addentry( int r, bool e, int k, const char *format, ... ) PRINTF_LIKE( 5, 6 );
         void addentry_desc( std::string str, std::string desc );
         void addentry_desc( int r, bool e, int k, std::string str, std::string desc );
         void settext( std::string str );
-        void settext( const char *format, ... );
+        void settext( const char *format, ... ) PRINTF_LIKE( 2, 3 );
 
         void reset();
         ~uimenu();
@@ -214,8 +231,10 @@ class uimenu: public ui_container
         std::string hotkeys;
 };
 
-// Callback for uimenu that pairs menu entries with points
-// When an entry is selected, view will be centered on the paired point
+/**
+ * Callback for uimenu that pairs menu entries with points
+ * When an entry is selected, view will be centered on the paired point
+ */
 class pointmenu_cb : public uimenu_callback
 {
     private:

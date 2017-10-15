@@ -14,9 +14,12 @@
 #include "path_info.h"
 #include "mapsharing.h"
 #include "output.h"
+#include "main_menu.h"
+#include "loading_ui.h"
 
 #include <cstring>
 #include <ctime>
+#include <locale>
 #include <map>
 #include <signal.h>
 #ifdef LOCALIZE
@@ -25,6 +28,8 @@
 #include "translations.h"
 
 void exit_handler(int s);
+
+extern bool test_dirty;
 
 namespace {
 
@@ -57,9 +62,11 @@ int main(int argc, char *argv[])
 #endif
     int seed = time(NULL);
     bool verifyexit = false;
-    bool check_all_mods = false;
+    bool check_mods = false;
     std::string dump;
     dump_mode dmode = dump_mode::TSV;
+    std::vector<std::string> opts;
+    std::string world; /** if set try to load first save in this world on startup */
 
     // Set default file paths
 #ifdef PREFIX
@@ -82,7 +89,7 @@ int main(int argc, char *argv[])
         const char *section_default = nullptr;
         const char *section_map_sharing = "Map sharing";
         const char *section_user_directory = "User directories";
-        const arg_handler first_pass_arguments[] = {
+        const std::array<arg_handler, 12> first_pass_arguments = {{
             {
                 "--seed", "<string of letters and or numbers>",
                 "Sets the random number generator's seed value",
@@ -104,24 +111,32 @@ int main(int argc, char *argv[])
                 }
             },
             {
-                "--check-mods", nullptr,
+                "--check-mods", "[mods...]",
                 "Checks the json files belonging to cdda mods",
                 section_default,
-                [&check_all_mods](int, const char **) -> int {
-                    check_all_mods = true;
+                [&check_mods,&opts]( int n, const char *params[] ) -> int {
+                    check_mods = true;
+                    test_mode = true;
+                    for( int i = 0; i < n; ++i ) {
+                        opts.emplace_back( params[ i ] );
+                    }
                     return 0;
                 }
             },
             {
-                "--dump-stats", "<what> [mode = TSV]",
+                "--dump-stats", "<what> [mode = TSV] [opts...]",
                 "Dumps item stats",
                 section_default,
-                [&dump,&dmode](int n, const char *params[]) -> int {
+                [&dump,&dmode,&opts](int n, const char *params[]) -> int {
                     if( n < 1 ) {
                         return -1;
                     }
+                    test_mode = true;
                     dump = params[ 0 ];
-                    if( n == 2 ) {
+                    for( int i = 2; i < n; ++i ) {
+                        opts.emplace_back( params[ i ] );
+                    }
+                    if( n >= 2 ) {
                         if( !strcmp( params[ 1 ], "TSV" ) ) {
                             dmode = dump_mode::TSV;
                             return 0;
@@ -133,6 +148,18 @@ int main(int argc, char *argv[])
                         }
                     }
                     return 0;
+                }
+            },
+            {
+                "--world", "<name>",
+                "Load world",
+                section_default,
+                [&world](int n, const char *params[]) -> int {
+                    if( n < 1 ) {
+                        return -1;
+                    }
+                    world = params[0];
+                    return 1;
                 }
             },
             {
@@ -208,11 +235,11 @@ int main(int argc, char *argv[])
                     return 1;
                 }
             }
-        };
+        }};
 
         // The following arguments are dependent on one or more of the previous flags and are run
         // in a second pass.
-        const arg_handler second_pass_arguments[] = {
+        const std::array<arg_handler, 9> second_pass_arguments = {{
             {
                 "--worldmenu", nullptr,
                 "Enables the world menu in the map-sharing code",
@@ -304,7 +331,7 @@ int main(int argc, char *argv[])
                     return 1;
                 }
             },
-        };
+        }};
 
         // Process CLI arguments.
         const size_t num_first_pass_arguments =
@@ -315,8 +342,8 @@ int main(int argc, char *argv[])
         const char **saved_argv = (const char **)++argv;
         while (argc) {
             if(!strcmp(argv[0], "--help")) {
-                printHelpMessage(first_pass_arguments, num_first_pass_arguments,
-                    second_pass_arguments, num_second_pass_arguments);
+                printHelpMessage(first_pass_arguments.data(), num_first_pass_arguments,
+                    second_pass_arguments.data(), num_second_pass_arguments);
                 return 0;
             } else {
                 bool arg_handled = false;
@@ -379,17 +406,27 @@ int main(int argc, char *argv[])
 
     if (setlocale(LC_ALL, "") == NULL) {
         DebugLog(D_WARNING, D_MAIN) << "Error while setlocale(LC_ALL, '').";
+    } else {
+        try {
+            std::locale::global( std::locale( "" ) );
+        } catch( const std::exception& ) {
+            // if user default locale retrieval isn't implemented by system
+            try{
+                // default to basic C locale
+                std::locale::global( std::locale::classic() );
+            } catch( const std::exception &err ) {
+                debugmsg( "%s", err.what() );
+                exit_handler(-999);
+            }
+        }
     }
 
-    // Options strings loaded with system locale
     get_options().init();
     get_options().load();
+    set_language();
 
-    set_language(true);
-
-    // if we are dumping stats don't initialize curses to avoid escape sequences
-    // being inserted in to the output stream
-    if( dump.empty() ) {
+    // in test mode don't initialize curses to avoid escape sequences being inserted into output stream
+    if( !test_mode ) {
          if( initscr() == nullptr ) { // Initialize ncurses
             DebugLog( D_ERROR, DC_ALL ) << "initscr failed!";
             return 1;
@@ -407,7 +444,7 @@ int main(int argc, char *argv[])
     // curs_set(0); // Invisible cursor
     set_escdelay(10); // Make escape actually responsive
 
-    std::srand(seed);
+    srand(seed);
 
     g = new game;
     // First load and initialize everything that does not
@@ -415,29 +452,16 @@ int main(int argc, char *argv[])
     try {
         g->load_static_data();
         if (verifyexit) {
-            if(g->game_error()) {
-                exit_handler(-999);
-            }
             exit_handler(0);
         }
         if( !dump.empty() ) {
             init_colors();
-            g->dump_stats( dump, dmode );
-            exit( 0 );
+            exit( g->dump_stats( dump, dmode, opts ) ? 0 : 1 );
         }
-        if (check_all_mods) {
-            // Here we load all the mods and check their
-            // consistency (both is done in check_all_mod_data).
-            g->init_ui();
-            popup_nowait("checking all mods");
-            g->check_all_mod_data();
-            if(g->game_error()) {
-                exit_handler(-999);
-            }
-            // At this stage, the mods (and core game data)
-            // are find and we could start playing, but this
-            // is only for verifying that stage, so we exit.
-            exit_handler(0);
+        if( check_mods ) {
+            init_colors();
+            loading_ui ui( false );
+            exit( g->check_mod_data( opts, ui ) && !test_dirty ? 0 : 1 );
         }
     } catch( const std::exception &err ) {
         debugmsg( "%s", err.what() );
@@ -447,9 +471,6 @@ int main(int argc, char *argv[])
     // Now we do the actual game.
 
     g->init_ui();
-    if(g->game_error()) {
-        exit_handler(-999);
-    }
 
     curs_set(0); // Invisible cursor here, because MAPBUFFER.load() is crash-prone
 
@@ -461,20 +482,25 @@ int main(int argc, char *argv[])
     sigaction(SIGINT, &sigIntHandler, NULL);
 #endif
 
-    bool quit_game = false;
-    do {
-        if(!g->opening_screen()) {
-            quit_game = true;
+    while( true ) {
+        if( !world.empty() ) {
+            if( !g->load( world ) ) {
+                break;
+            }
+            world.clear(); // ensure quit returns to opening screen
+
+        } else {
+            main_menu menu;
+            if( !menu.opening_screen() ) {
+                break;
+            }
         }
-        while (!quit_game && !g->do_turn()) ;
-        if (g->game_quit() || g->game_error()) {
-            quit_game = true;
-        }
-    } while (!quit_game);
+
+        while( !g->do_turn() );
+    };
 
 
     exit_handler(-999);
-
     return 0;
 }
 
@@ -501,7 +527,7 @@ void printHelpMessage(const arg_handler *first_pass_arguments,
         help_map.insert( std::make_pair(help_group, &second_pass_arguments[i]) );
     }
 
-    printf("Command line paramters:\n");
+    printf("Command line parameters:\n");
     std::string current_help_group;
     auto it = help_map.begin();
     auto it_end = help_map.end();
@@ -526,6 +552,8 @@ void printHelpMessage(const arg_handler *first_pass_arguments,
 
 void exit_handler(int s)
 {
+    const int old_timeout = inp_mngr.get_timeout();
+    inp_mngr.reset_timeout();
     if (s != 2 || query_yn(_("Really Quit? All unsaved changes will be lost."))) {
         erase(); // Clear screen
 
@@ -533,9 +561,6 @@ void exit_handler(int s)
 
         int exit_status = 0;
         if( g != NULL ) {
-            if( g->game_error() ) {
-                exit_status = 1;
-            }
             delete g;
         }
 
@@ -543,4 +568,5 @@ void exit_handler(int s)
 
         exit( exit_status );
     }
+    inp_mngr.set_timeout( old_timeout );
 }

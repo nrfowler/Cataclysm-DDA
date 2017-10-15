@@ -1,3 +1,4 @@
+#pragma once
 #ifndef IUSE_H
 #define IUSE_H
 
@@ -67,16 +68,13 @@ public:
     int mycus               ( player*, item*, bool, const tripoint& );
     int dogfood             ( player*, item*, bool, const tripoint& );
     int catfood             ( player*, item*, bool, const tripoint& );
-
+    int feedcattle          ( player*, item*, bool, const tripoint& );
 // TOOLS
     int sew_advanced        ( player*, item*, bool, const tripoint& );
-    int extra_battery       ( player*, item*, bool, const tripoint& );
-    int double_reactor      ( player*, item*, bool, const tripoint& );
     int scissors            ( player*, item*, bool, const tripoint& );
     int extinguisher        ( player*, item*, bool, const tripoint& );
     int hammer              ( player*, item*, bool, const tripoint& );
     int water_purifier      ( player*, item*, bool, const tripoint& );
-    int two_way_radio       ( player*, item*, bool, const tripoint& );
     int directional_antenna ( player*, item*, bool, const tripoint& );
     int radio_off           ( player*, item*, bool, const tripoint& );
     int radio_on            ( player*, item*, bool, const tripoint& );
@@ -137,7 +135,7 @@ public:
     int vibe                ( player*, item*, bool, const tripoint& );
     int vortex              ( player*, item*, bool, const tripoint& );
     int dog_whistle         ( player*, item*, bool, const tripoint& );
-    int vacutainer          ( player*, item*, bool, const tripoint& );
+    int blood_draw          ( player*, item*, bool, const tripoint& );
     static void cut_log_into_planks(player *);
     int lumber              ( player*, item*, bool, const tripoint& );
     int oxytorch            ( player*, item*, bool, const tripoint& );
@@ -152,8 +150,8 @@ public:
     int mop                 ( player*, item*, bool, const tripoint& );
     int spray_can           ( player*, item*, bool, const tripoint& );
     int heatpack            ( player*, item*, bool, const tripoint& );
+    int heat_food           ( player*, item*, bool, const tripoint& );
     int hotplate            ( player*, item*, bool, const tripoint& );
-    int quiver              ( player*, item*, bool, const tripoint& );
     int towel               ( player*, item*, bool, const tripoint& );
     int unfold_generic      ( player*, item*, bool, const tripoint& );
     int adrenaline_injector ( player*, item*, bool, const tripoint& );
@@ -164,13 +162,14 @@ public:
     int bell                ( player*, item*, bool, const tripoint& );
     int seed                ( player*, item*, bool, const tripoint& );
     int oxygen_bottle       ( player*, item*, bool, const tripoint& );
-    int atomic_battery      ( player*, item*, bool, const tripoint& );
-    int ups_battery         ( player*, item*, bool, const tripoint& );
     int radio_mod           ( player*, item*, bool, const tripoint& );
     int remove_all_mods     ( player*, item*, bool, const tripoint& );
     int fishing_rod         ( player*, item*, bool, const tripoint& );
     int fish_trap           ( player*, item*, bool, const tripoint& );
+    int gun_detach_gunmods  ( player*, item*, bool, const tripoint& );
     int gun_repair          ( player*, item*, bool, const tripoint& );
+    int gunmod_attach       ( player*, item*, bool, const tripoint& );
+    int toolmod_attach      ( player*, item*, bool, const tripoint& );
     int misc_repair         ( player*, item*, bool, const tripoint& );
     int rm13armor_off       ( player*, item*, bool, const tripoint& );
     int rm13armor_on        ( player*, item*, bool, const tripoint& );
@@ -186,11 +185,9 @@ public:
     int hairkit             ( player*, item*, bool, const tripoint& );
     int weather_tool        ( player*, item*, bool, const tripoint& );
     int ladder              ( player*, item*, bool, const tripoint& );
-    int saw_barrel          ( player*, item*, bool, const tripoint& );
     int washclothes         ( player*, item*, bool, const tripoint& );
 
 // MACGUFFINS
-    int mcg_note            ( player*, item*, bool, const tripoint& );
 
     int radiocar( player*, item*, bool, const tripoint& );
     int radiocaron( player*, item*, bool, const tripoint& );
@@ -234,8 +231,8 @@ public:
 
     virtual ~iuse_actor() { }
     virtual void load( JsonObject &jo ) = 0;
-    virtual long use( player*, item*, bool, const tripoint& ) const = 0;
-    virtual bool can_use( const player*, const item*, bool, const tripoint& ) const { return true; }
+    virtual long use( player &, item &, bool, const tripoint& ) const = 0;
+    virtual bool can_use( const player &, const item &, bool, const tripoint& ) const { return true; }
     virtual void info( const item &, std::vector<iteminfo> & ) const {};
     /**
      * Returns a deep copy of this object. Example implementation:
@@ -250,10 +247,13 @@ public:
      */
     virtual iuse_actor *clone() const = 0;
     /**
+     * Returns whether the actor is valid (exists in the generator).
+     */
+    virtual bool is_valid() const;
+    /**
      * Returns the translated name of the action. It is used for the item action menu.
      */
     virtual std::string get_name() const;
-
     /**
      * Finalizes the actor. Must be called after all items are loaded.
      */
@@ -273,7 +273,7 @@ public:
 
     ~use_function() = default;
 
-    long call( player*,item*,bool, const tripoint& ) const;
+    long call( player &, item &, bool, const tripoint & ) const;
 
     iuse_actor *get_actor_ptr() const
     {
@@ -291,7 +291,7 @@ public:
     /** @return Used by @ref item::info to get description of the actor */
     void dump_info( const item &, std::vector<iteminfo> & ) const;
 
-    bool can_call(const player *p, const item *it, bool t, const tripoint &pos) const
+    bool can_call(const player &p, const item &it, bool t, const tripoint &pos) const
     {
         return !actor || actor->can_use( p, it, t, pos );
     }

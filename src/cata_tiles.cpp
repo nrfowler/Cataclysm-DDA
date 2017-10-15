@@ -17,6 +17,7 @@
 #include "options.h"
 #include "overmapbuffer.h"
 #include "player.h"
+#include "npc.h"
 #include "catacharset.h"
 #include "itype.h"
 #include "vehicle.h"
@@ -28,11 +29,13 @@
 #include "weighted_list.h"
 #include "submap.h"
 #include "overlay_ordering.h"
+#include "cata_utility.h"
 
 #include <algorithm>
 #include <fstream>
 #include <stdlib.h>     /* srand, rand */
 #include <sstream>
+#include <array>
 
 #include <SDL_image.h>
 
@@ -40,7 +43,18 @@
 
 #define ITEM_HIGHLIGHT "highlight_item"
 
-extern int WindowHeight, WindowWidth;
+static const std::array<std::string, 8> multitile_keys = {{
+        "center",
+        "corner",
+        "edge",
+        "t_connection",
+        "end_piece",
+        "unconnected",
+        "open",
+        "broken"
+    }
+};
+
 extern int fontwidth, fontheight;
 extern bool tile_iso;
 
@@ -50,7 +64,7 @@ static minimap_shared_texture_pool tex_pool;
 SDL_Color cursesColorToSDL(int color);
 
 static const std::string empty_string;
-static const std::string TILE_CATEGORY_IDS[] = {
+static const std::array<std::string, 12> TILE_CATEGORY_IDS = {{
     "", // C_NONE,
     "vehicle_part", // C_VEHICLE_PART,
     "terrain", // C_TERRAIN,
@@ -63,8 +77,24 @@ static const std::string TILE_CATEGORY_IDS[] = {
     "bullet", // C_BULLET,
     "hit_entity", // C_HIT_ENTITY,
     "weather", // C_WEATHER,
-};
+}};
 
+
+namespace
+{
+    /// Returns a number in range [0..1]. The range lasts for @param phase_length_ms (milliseconds).
+    float get_animation_phase( int phase_length_ms )
+    {
+        if( phase_length_ms == 0 ) {
+            return 0.0f;
+        }
+
+        return std::fmod<float>( SDL_GetTicks(), phase_length_ms ) / phase_length_ms;
+    }
+}
+
+
+// Operator overload required to leverage unique_ptr API.
 void SDL_Texture_deleter::operator()( SDL_Texture *const ptr )
 {
     if( ptr ) {
@@ -72,6 +102,7 @@ void SDL_Texture_deleter::operator()( SDL_Texture *const ptr )
     }
 }
 
+// Operator overload required to leverage unique_ptr API.
 void SDL_Surface_deleter::operator()( SDL_Surface *const ptr )
 {
     if( ptr ) {
@@ -134,16 +165,16 @@ void cata_tiles::init()
 {
     const std::string default_json = FILENAMES["defaulttilejson"];
     const std::string default_tileset = FILENAMES["defaulttilepng"];
-    const std::string current_tileset = OPTIONS["TILES"].getValue();
+    const std::string current_tileset = get_option<std::string>( "TILES" );
     std::string json_path, tileset_path, config_path;
 
     // Get curent tileset and it's directory path.
     if (current_tileset.empty()) {
-        dbg( D_ERROR ) << "Tileset not set in OPTIONS. Corrupted options or empty tileset name";
+        dbg( D_ERROR ) << "Tileset not set in options or empty.";
         json_path = default_json;
         tileset_path = default_tileset;
     } else {
-        dbg( D_INFO ) << "Current OPTIONS tileset is: " << current_tileset;
+        dbg( D_INFO ) << "Current tileset is: " << current_tileset;
     }
 
     // Build tileset config path
@@ -182,36 +213,31 @@ void cata_tiles::get_tile_information(std::string config_path, std::string &json
     const std::string default_tileset = FILENAMES["defaulttilepng"];
 
     // Get JSON and TILESET vars from config
-    std::ifstream fin;
-    fin.open(config_path.c_str());
-    if(!fin.is_open()) {
-        fin.close();
-        dbg( D_ERROR ) << "Can't open " << config_path << " -- Setting default values!";
+    const auto reader = [&]( std::istream &fin ) {
+        while(!fin.eof()) {
+            std::string sOption;
+            fin >> sOption;
+
+            if(sOption == "") {
+                getline(fin, sOption);
+            } else if(sOption[0] == '#') { // Skip comment
+                getline(fin, sOption);
+            } else if (sOption.find("JSON") != std::string::npos) {
+                fin >> json_path;
+                dbg( D_INFO ) << "JSON path set to [" << json_path << "].";
+            } else if (sOption.find("TILESET") != std::string::npos) {
+                fin >> tileset_path;
+                dbg( D_INFO ) << "TILESET path set to [" << tileset_path << "].";
+            } else {
+                getline(fin, sOption);
+            }
+        }
+    };
+
+    if( !read_from_file( config_path, reader ) ) {
         json_path = default_json;
         tileset_path = default_tileset;
-        return;
     }
-
-    while(!fin.eof()) {
-        std::string sOption;
-        fin >> sOption;
-
-        if(sOption == "") {
-            getline(fin, sOption);
-        } else if(sOption[0] == '#') { // Skip comment
-            getline(fin, sOption);
-        } else if (sOption.find("JSON") != std::string::npos) {
-            fin >> json_path;
-            dbg( D_INFO ) << "JSON path set to [" << json_path << "].";
-        } else if (sOption.find("TILESET") != std::string::npos) {
-            fin >> tileset_path;
-            dbg( D_INFO ) << "TILESET path set to [" << tileset_path << "].";
-        } else {
-            getline(fin, sOption);
-        }
-    }
-
-    fin.close();
 
     if (json_path == "") {
         json_path = default_json;
@@ -243,14 +269,6 @@ inline static void set_pixel_color(SDL_Surface_Ptr &surf, int x, int y, int w, p
     pixel_ptr[1] = static_cast<unsigned char>(pix.g);
     pixel_ptr[2] = static_cast<unsigned char>(pix.b);
     pixel_ptr[3] = static_cast<unsigned char>(pix.a);
-}
-
-static void color_pixel_red_mix(pixel& pix, int percent)
-{
-    int otherpercent = 100 - percent;
-    pix.r = pix.r * otherpercent / 100 + 255 * percent / 100;
-    pix.g = pix.g * otherpercent / 100;
-    pix.b = pix.b * otherpercent / 100;
 }
 
 static void color_pixel_grayscale(pixel& pix)
@@ -965,11 +983,12 @@ void cata_tiles::draw( int destx, int desty, const tripoint &center, int width, 
 
             draw_points.push_back( tile_render_info( tripoint( x, y, center.z ), height_3d ) );
         }
-	const decltype (&cata_tiles::draw_furniture) drawing_layers[]={
-			 &cata_tiles::draw_furniture, &cata_tiles::draw_trap,
-                        &cata_tiles::draw_field_or_item, &cata_tiles::draw_vpart,
-                        &cata_tiles::draw_vpart_below, &cata_tiles::draw_terrain_below,
-                        &cata_tiles::draw_critter_at };
+        const std::array<decltype ( &cata_tiles::draw_furniture ), 7> drawing_layers = {{
+            &cata_tiles::draw_furniture, &cata_tiles::draw_trap,
+            &cata_tiles::draw_field_or_item, &cata_tiles::draw_vpart,
+            &cata_tiles::draw_vpart_below, &cata_tiles::draw_terrain_below,
+            &cata_tiles::draw_critter_at
+        }};
         // for each of the drawing layers in order, back to front ...
         for( auto f : drawing_layers ) {
             // ... draw all the points we drew terrain for, in the same order
@@ -1096,6 +1115,21 @@ void cata_tiles::clear_unused_minimap_cache()
 //the render target will be set back to display_buffer after all submaps are updated
 void cata_tiles::process_minimap_cache_updates()
 {
+    SDL_Rect rectangle;
+    bool draw_with_dots = false;
+
+    const std::string mode = get_option<std::string>( "PIXEL_MINIMAP_MODE" );
+    if( mode == "solid" ) {
+        rectangle.w = minimap_tile_size.x;
+        rectangle.h = minimap_tile_size.y;
+    } else if( mode == "squares" ) {
+        rectangle.w = std::max( minimap_tile_size.x - 1, 1 );
+        rectangle.h = std::max( minimap_tile_size.y - 1, 1 );
+        draw_with_dots = rectangle.w == 1 && rectangle.h == 1;
+    } else if( mode == "dots" ) {
+        draw_with_dots = true;
+    }
+
     for( auto &mcp : minimap_cache ) {
         if( !mcp.second->update_list.empty() ) {
             SDL_SetRenderTarget( renderer, mcp.second->minimap_tex.get() );
@@ -1103,25 +1137,25 @@ void cata_tiles::process_minimap_cache_updates()
             //draw a default dark-colored rectangle over the texture which may have been used previously
             if( !mcp.second->ready ) {
                 mcp.second->ready = true;
-                SDL_Rect fullRect;
-                fullRect.h = SEEY * minimap_tile_size.y;
-                fullRect.w = SEEX * minimap_tile_size.x;
-                fullRect.x = 0;
-                fullRect.y = 0;
-                SDL_SetRenderDrawColor( renderer, 12, 12, 12, 255 );
-                SDL_RenderFillRect( renderer, &fullRect );
+                SDL_SetRenderDrawColor( renderer, 0, 0, 0, 255 );
+                SDL_RenderClear( renderer );
             }
 
-            SDL_Rect rectangle;
-            rectangle.w = minimap_tile_size.x;
-            rectangle.h = minimap_tile_size.y;
-            for( point &p : mcp.second->update_list ) {
-                rectangle.x = p.x * minimap_tile_size.x;
-                rectangle.y = p.y * minimap_tile_size.y;
-                pixel &current_pix = mcp.second->minimap_colors[p.y * SEEX + p.x];
-                SDL_Color c = current_pix.getSdlColor();
+            for( const point &p : mcp.second->update_list ) {
+                const pixel &current_pix = mcp.second->minimap_colors[p.y * SEEX + p.x];
+                const SDL_Color c = current_pix.getSdlColor();
+
+
                 SDL_SetRenderDrawColor( renderer, c.r, c.g, c.b, c.a );
-                SDL_RenderFillRect( renderer, &rectangle );
+
+                if( draw_with_dots ) {
+                    SDL_RenderDrawPoint( renderer, p.x * minimap_tile_size.x, p.y * minimap_tile_size.y );
+                } else {
+                    rectangle.x = p.x * minimap_tile_size.x;
+                    rectangle.y = p.y * minimap_tile_size.y;
+
+                    SDL_RenderFillRect( renderer, &rectangle );
+                }
             }
             mcp.second->update_list.clear();
         }
@@ -1177,7 +1211,7 @@ void cata_tiles::init_minimap( int destx, int desty, int width, int height )
     minimap_tile_size.x = std::max( width / minimap_tiles_range.x, 1 );
     minimap_tile_size.y = std::max( height / minimap_tiles_range.y, 1 );
     //maintain a square "pixel" shape
-    if (OPTIONS["PIXEL_MINIMAP_RATIO"]) {
+    if( get_option<bool>( "PIXEL_MINIMAP_RATIO" ) ) {
         int smallest_size = std::min( minimap_tile_size.x, minimap_tile_size.y );
         minimap_tile_size.x = smallest_size;
         minimap_tile_size.y = smallest_size;
@@ -1243,7 +1277,7 @@ void cata_tiles::draw_minimap( int destx, int desty, const tripoint &center, int
     auto vision_cache = g->u.get_vision_modes();
     bool nv_goggle = vision_cache[NV_GOGGLES];
 
-
+    const int brightness = get_option<int>( "PIXEL_MINIMAP_BRIGHTNESS" );
     //check all of exposed submaps (MAPSIZE*MAPSIZE submaps) and apply new color changes to the cache
     for( int y = 0; y < MAPSIZE * SEEY; y++ ) {
         for( int x = 0; x < MAPSIZE * SEEX; x++ ) {
@@ -1252,7 +1286,11 @@ void cata_tiles::draw_minimap( int destx, int desty, const tripoint &center, int
             lit_level lighting = ch.visibility_cache[p.x][p.y];
             SDL_Color color;
             color.a = 255;
-            if( lighting == LL_DARK || lighting == LL_BLANK ) {
+            if( lighting == LL_BLANK ) {
+                color.r = 0;
+                color.g = 0;
+                color.b = 0;
+            } else if( lighting == LL_DARK ) {
                 color.r = 12;
                 color.g = 12;
                 color.b = 12;
@@ -1280,6 +1318,8 @@ void cata_tiles::draw_minimap( int destx, int desty, const tripoint &center, int
             } else if( lighting == LL_LOW ) {
                 color_pixel_grayscale( pix );
             }
+
+            pix.adjust_brightness( brightness );
             //add an individual color update to the cache
             update_minimap_cache( p, pix );
         }
@@ -1334,14 +1374,17 @@ void cata_tiles::draw_minimap( int destx, int desty, const tripoint &center, int
 
     //handles the enemy faction red highlights
     //this value should be divisible by 200
-    const int indicator_length = OPTIONS["PIXEL_MINIMAP_BLINK"] * 200; //default is 2000 ms, 2 seconds
-    int indicator_tick = 0; //if blink is disabled, leave at 0
+    const int indicator_length = get_option<int>( "PIXEL_MINIMAP_BLINK" ) * 200; //default is 2000 ms, 2 seconds
+
+    int flicker = 100;
+    int mixture = 0;
+
     if( indicator_length > 0 ) {
-        indicator_tick = SDL_GetTicks() % indicator_length;
-        if( indicator_tick > indicator_length / 2 ) {
-            indicator_tick = indicator_length - indicator_tick;
-        }
-        indicator_tick /= ( indicator_length / 200 ); //scale to 0-100 percent
+        const float t = get_animation_phase( 2 * indicator_length );
+        const float s = std::sin( 2 * M_PI * t );
+
+        flicker = lerp_clamped( 25, 100, std::abs( s ) );
+        mixture = lerp_clamped( 0, 100, std::max( s, 0.0f ) );
     }
 
     // Now draw critters over terrain.
@@ -1370,12 +1413,13 @@ void cata_tiles::draw_minimap( int destx, int desty, const tripoint &center, int
                                 //faction status (attacking or tracking) determines if red highlights get applied to creature
                                 monster_attitude matt = m->attitude( &( g->u ) );
                                 if( MATT_ATTACK == matt || MATT_FOLLOW == matt ) {
-                                    // use a red-black transition for flickering enemy beacons
-                                    c.r = 0;
-                                    c.g = 0;
-                                    c.b = 0;
+                                    const pixel red_pixel( 0xFF, 0x0, 0x0 );
+
                                     pixel p( c );
-                                    color_pixel_red_mix( p, indicator_tick );
+
+                                    p.mix_with( red_pixel, mixture );
+                                    p.adjust_brightness( flicker );
+
                                     c = p.getSdlColor();
                                 }
                             }
@@ -1491,7 +1535,7 @@ bool cata_tiles::draw_from_id_string(std::string id, TILE_CATEGORY category,
                 col = mt.color;
             }
         } else if (category == C_VEHICLE_PART) {
-            const vpart_str_id vpid( id.substr( 3 ) );
+            const vpart_id vpid( id.substr( 3 ) );
             if( vpid.is_valid() ) {
                 const vpart_info &v = vpid.obj();
                 sym = v.sym;
@@ -1654,9 +1698,8 @@ bool cata_tiles::draw_from_id_string(std::string id, TILE_CATEGORY category,
             // TODO come up with ways to make random sprites consistent for these types
             break;
         case C_MONSTER:
-            // monsters, seed with index into monster list
-            // FIXME add persistent id to Creature type, instead of using monster list index
-            seed = g->mon_at( pos );
+            // FIXME add persistent id to Creature type, instead of using monster pointer address
+            seed = reinterpret_cast<uintptr_t>( g->critter_at<monster>( pos ) );
             break;
         default:
             // player
@@ -1666,9 +1709,8 @@ bool cata_tiles::draw_from_id_string(std::string id, TILE_CATEGORY category,
             }
             // NPC
             if( id.substr(4) == "npc_" ) {
-                const int nindex = g->npc_at( pos );
-                if( nindex != -1 ) {
-                    seed = nindex;
+                if( npc * const guy = g->critter_at<npc>( pos ) ) {
+                    seed = guy->getID();
                     break;
                 }
             }
@@ -1680,8 +1722,7 @@ bool cata_tiles::draw_from_id_string(std::string id, TILE_CATEGORY category,
         // use a fair mix function to turn the "random" seed into a random int
         // taken from public domain code at http://burtleburtle.net/bob/c/lookup3.c 2015/12/11
 #define rot32(x,k) (((x)<<(k)) | ((x)>>(32-(k))))
-        // to avoid compile error on MSVC, calculate b by (UINT32_MAX - seed + 1)
-        unsigned int a = seed, b = UINT32_MAX - seed + 1, c = seed*seed;
+        unsigned int a = seed, b = -seed, c = seed*seed;
         c ^= b; c -= rot32(b,14);
         a ^= c; a -= rot32(c,11);
         b ^= a; b -= rot32(a,25);
@@ -2104,7 +2145,7 @@ bool cata_tiles::draw_vpart( const tripoint &p, lit_level ll, int &height_3d )
     // Gets the visible part, should work fine once tileset vp_ids are updated to work with the vehicle part json ids
     // get the vpart_id
     char part_mod = 0;
-    const vpart_str_id &vp_id = veh->part_id_string(veh_part, part_mod);
+    const vpart_id &vp_id = veh->part_id_string(veh_part, part_mod);
     const char sym = veh->face.dir_symbol(veh->part_sym(veh_part));
     std::string subcategory(1, sym);
 
@@ -2724,17 +2765,26 @@ void cata_tiles::get_tile_values(const int t, const int *tn, int &subtile, int &
 }
 
 void cata_tiles::do_tile_loading_report() {
-    DebugLog( D_INFO, DC_ALL ) << "Loaded tileset: " << OPTIONS["TILES"].getValue();
+    DebugLog( D_INFO, DC_ALL ) << "Loaded tileset: " << get_option<std::string>( "TILES" );
+
+    if( !g->is_core_data_loaded() ) {
+        return; // There's nothing to do anymore without the core data.
+    }
 
     tile_loading_report<ter_t>( ter_t::count(), "Terrain", "" );
     tile_loading_report<furn_t>( furn_t::count(), "Furniture", "" );
-    //TODO: exclude fake items from Item_factory::init_old()
-    tile_loading_report(item_controller->get_all_itypes(), "Items", "");
+
+    std::map<itype_id, const itype *> items;
+    for( const itype *e : item_controller->all() ) {
+        items.emplace( e->get_id(), e );
+    }
+    tile_loading_report( items, "Items", "" );
+
     auto mtypes = MonsterGenerator::generator().get_all_mtypes();
     lr_generic( mtypes.begin(), mtypes.end(), []( const std::vector<mtype>::iterator &m ) {
         return ( *m ).id.str();
     }, "Monsters", "" );
-    tile_loading_report<vpart_info>(vpart_info::get_all().size(), "Vehicle Parts", "vp_");
+    tile_loading_report( vpart_info::all(), "Vehicle Parts", "vp_" );
     tile_loading_report<trap>(trap::count(), "Traps", "");
     tile_loading_report(fieldlist, num_fields, "Fields", "");
 

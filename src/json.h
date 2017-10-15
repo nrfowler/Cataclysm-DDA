@@ -2,10 +2,11 @@
 #define JSON_H
 
 #include <type_traits>
-#include <iosfwd>
+#include <iostream>
 #include <string>
 #include <vector>
 #include <bitset>
+#include <utility>
 #include <array>
 #include <map>
 #include <set>
@@ -161,15 +162,14 @@ class JsonIn
 {
     private:
         std::istream *stream;
-        bool strict; // throw errors on non-RFC-4627-compliant input
-        bool ate_separator;
+        bool ate_separator = false;
 
         void skip_separator();
         void skip_pair_separator();
         void end_value();
 
     public:
-        JsonIn(std::istream &stream, bool strict = true);
+        JsonIn( std::istream &s ) : stream( &s ) {}
 
         bool get_ate_separator()
         {
@@ -277,6 +277,30 @@ class JsonIn
             return true;
         }
 
+        /// Overload that calls a global function `deserialize(T&,JsonIn&)`, if available.
+        template<typename T>
+        auto read( T &v ) -> decltype( deserialize( v, *this ), true )
+        {
+            try {
+                deserialize( v, *this );
+                return true;
+            } catch( const JsonError & ) {
+                return false;
+            }
+        }
+
+        /// Overload that calls a member function `T::deserialize(JsonIn&)`, if available.
+        template<typename T>
+        auto read( T &v ) -> decltype( v.deserialize( *this ), true )
+        {
+            try {
+                v.deserialize( *this );
+                return true;
+            } catch( const JsonError & ) {
+                return false;
+            }
+        }
+
         // array ~> vector, deque, list
         template <typename T, typename std::enable_if<
             !std::is_same<void, typename T::value_type>::value>::type* = nullptr
@@ -366,7 +390,7 @@ class JsonIn
                 start_object();
                 m.clear();
                 while (!end_object()) {
-                    std::string name = get_member_name();
+                    typename T::key_type name( get_member_name() );
                     typename T::mapped_type element;
                     if (read(element)) {
                         m[std::move(name)] = std::move(element);
@@ -423,56 +447,79 @@ class JsonOut
     private:
         std::ostream *stream;
         bool pretty_print;
-        bool need_separator;
-        int indent_level;
+        std::vector<bool> need_wrap;
+        int indent_level = 0;
+        bool need_separator = false;
 
     public:
-        JsonOut(std::ostream &stream, bool pretty_print = false);
+        JsonOut(std::ostream &stream, bool pretty_print = false, int depth = 0);
 
         // punctuation
         void write_indent();
         void write_separator();
         void write_member_separator();
-        void start_object();
+        bool get_need_separator() { return need_separator; }
+        void set_need_separator() { need_separator = true; }
+        std::ostream *get_stream() { return stream; }
+        int tell();
+        void seek( int pos );
+        void start_pretty();
+        void end_pretty();
+
+        void start_object( bool wrap = false );
         void end_object();
-        void start_array();
+        void start_array( bool wrap = false );
         void end_array();
 
         // write data to the output stream as JSON
         void write_null();
-        void write(const bool &b);
-        void write(const char &c)
-        {
-            write(static_cast<int>(c));
+
+        template <typename T, typename std::enable_if<std::is_fundamental<T>::value, int>::type = 0>
+        void write( T val ) {
+            if( need_separator ) {
+                write_separator();
+            }
+            *stream << val;
+            need_separator = true;
         }
-        void write(const signed char &c)
+
+        /// Overload that calls a global function `serialize(const T&,JsonOut&)`, if available.
+        template<typename T>
+        auto write( const T &v ) -> decltype( serialize( v, *this ), void() )
         {
-            write(static_cast<unsigned>(c));
+            serialize( v, *this );
         }
-        void write(const int &i);
-        void write(const unsigned &u);
-        void write(const long &l);
-        void write(const unsigned long &ul);
-        void write(const double &f);
-        void write(const std::string &s);
+
+        /// Overload that calls a member function `T::serialize(JsonOut&) const`, if available.
+        template<typename T>
+        auto write( const T &v ) -> decltype( v.serialize( *this ), void() )
+        {
+            v.serialize( *this );
+        }
+
+        template <typename T, typename std::enable_if<std::is_enum<T>::value, int>::type = 0>
+        void write( T val ) {
+            write( static_cast<typename std::underlying_type<T>::type>( val ) );
+        }
+
+        // strings need escaping and quoting
+        void write( const std::string &val );
+        void write( const char *val ) { write( std::string( val ) ); }
+
+        // char should always be written as an unquoted numeral
+        void write(          char val ) { write( static_cast<int>( val ) ); }
+        void write(   signed char val ) { write( static_cast<int>( val ) ); }
+        void write( unsigned char val ) { write( static_cast<int>( val ) ); }
+
         template<size_t N>
         void write(const std::bitset<N> &b);
-        void write(const char *cstr)
-        {
-            write(std::string(cstr));
-        }
+
         void write(const JsonSerializer &thing);
         // This is for the string_id type
         template <typename T>
         auto write(const T &thing) -> decltype(thing.str(), (void)0)
         {
             write( thing.str() );
-        }
-
-        // enum ~> underlying type
-        template <typename T, typename std::enable_if<std::is_enum<T>::value>::type* = nullptr>
-        void write(T const &value) {
-            write(static_cast<typename std::underlying_type<T>::type>(value));
         }
 
         // enum ~> string

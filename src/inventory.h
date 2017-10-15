@@ -1,3 +1,4 @@
+#pragma once
 #ifndef INVENTORY_H
 #define INVENTORY_H
 
@@ -10,6 +11,7 @@
 #include <utility>
 #include <vector>
 #include <functional>
+#include <unordered_map>
 
 class map;
 class npc;
@@ -18,6 +20,7 @@ typedef std::list< std::list<item> > invstack;
 typedef std::vector< std::list<item>* > invslice;
 typedef std::vector< const std::list<item>* > const_invslice;
 typedef std::vector< std::pair<std::list<item>*, int> > indexed_invslice;
+typedef std::unordered_map< itype_id, std::list<const item *> > itype_bin;
 
 class salvage_actor;
 
@@ -56,7 +59,6 @@ class inventory : public visitable<inventory>
         const_invslice const_slice() const;
         const std::list<item> &const_stack(int i) const;
         size_t size() const;
-        int num_items() const;
         bool is_sorted() const;
 
         inventory();
@@ -76,8 +78,6 @@ class inventory : public visitable<inventory>
         void unsort(); // flags the inventory as unsorted
         void sort();
         void clear();
-        void add_stack(std::list<item> newits);
-        void clone_stack(const std::list<item> &rhs);
         void push_back(std::list<item> newits);
         // returns a reference to the added item
         item &add_item (item newit, bool keep_invlet = false, bool assign_invlet = true);
@@ -104,17 +104,11 @@ class inventory : public visitable<inventory>
         /**
          * Randomly select items until the volume quota is filled.
          */
-        std::list<item> remove_randomly_by_volume(int volume);
+        std::list<item> remove_randomly_by_volume( const units::volume &volume );
         std::list<item> reduce_stack(int position, int quantity);
-        std::list<item> reduce_stack(const itype_id &type, int quantity);
-
-        // amount of -1 removes the entire stack.
-        template<typename Locator> std::list<item> reduce_stack(const Locator &type, int amount);
 
         const item &find_item(int position) const;
         item &find_item(int position);
-        item &item_by_type(itype_id type);
-        item &item_or_container(itype_id type); // returns an item, or a container of it
 
         /**
          * Returns the item position of the stack that contains the given item (compared by
@@ -128,8 +122,6 @@ class inventory : public visitable<inventory>
         /** Return the item position of the item with given invlet, return INT_MIN if
          * the inventory does not have such an item with that invlet. Don't use this on npcs inventory. */
         int invlet_to_position(char invlet) const;
-
-        std::vector<std::pair<item *, int> > all_items_by_type(itype_id type);
 
         // Below, "amount" refers to quantity
         //        "charges" refers to charges
@@ -150,8 +142,8 @@ class inventory : public visitable<inventory>
 
         void rust_iron_items();
 
-        int weight() const;
-        int volume() const;
+        units::mass weight() const;
+        units::volume volume() const;
 
         void dump(std::vector<item *> &dest); // dumps contents into dest (does not delete contents)
 
@@ -170,22 +162,36 @@ class inventory : public visitable<inventory>
         // Assigns an invlet if any remain.  If none do, will assign ` if force is
         // true, empty (invlet = 0) otherwise.
         void assign_empty_invlet(item &it, bool force = false);
+        // Assigns the item with the given invlet, and updates the favourite invlet cache. Does not check for uniqueness
+        void reassign_item( item &it, char invlet, bool remove_old = true );
+        // Removes invalid invlets, and assigns new ones if assign_invlet is true. Does not update the invlet cache.
+        void update_invlet( item &it, bool assign_invlet = true );
 
         std::set<char> allocated_invlets() const;
+
+        /**
+         * Returns visitable items binned by their itype.
+         * May not contain items that wouldn't be visited by @ref visitable methods.
+         */
+        const itype_bin &get_binned_items() const;
+
+        void update_cache_with_item( item &newit );
 
     private:
         // For each item ID, store a set of "favorite" inventory letters.
         std::map<std::string, std::vector<char> > invlet_cache;
-        void update_cache_with_item(item &newit);
         char find_usable_cached_invlet(const std::string &item_type);
-
-        // Often items can be located using typeid, position, or invlet.  To reduce code duplication,
-        // we back those functions with a single internal function templated on the type of Locator.
-        template<typename Locator> item remove_item_internal(const Locator &locator);
-        template<typename Locator> std::list<item> reduce_stack_internal(const Locator &type, int amount);
 
         invstack items;
         bool sorted;
+
+        mutable bool binned;
+        /**
+         * Items binned by their type.
+         * That is, item_bin["carrot"] is a list of pointers to all carrots in inventory.
+         * `mutable` because this is a pure cache that doesn't affect the contained items.
+         */
+        mutable itype_bin binned_items;
 };
 
 #endif

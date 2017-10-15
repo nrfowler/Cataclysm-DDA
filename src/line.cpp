@@ -5,7 +5,9 @@
 
 #include "output.h"
 
-#define SGN(a) (((a)<0) ? -1 : 1)
+#include <cassert>
+
+#define SGN(a) (((a)<0) ? -1 : (((a)>0) ? 1 : 0))
 
 void bresenham( const int x1, const int y1, const int x2, const int y2, int t,
                 const std::function<bool(const point &)> &interact )
@@ -493,7 +495,7 @@ std::vector<tripoint> squares_closer_to( const tripoint &from, const tripoint &t
         if( dx != 0 ) {
             adjacent_closer_squares.push_back( { from.x + SGN(dx), from.y, from.z } );
         }
-    } else {
+    } else if( dx != 0 ) {
         // Pure diagonal.
         adjacent_closer_squares.push_back( { from.x + SGN(dx), from.y + SGN(dy), from.z } );
         adjacent_closer_squares.push_back( { from.x + SGN(dx), from.y, from.z } );

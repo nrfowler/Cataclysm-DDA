@@ -1,3 +1,4 @@
+#pragma once
 #ifndef EDITMAP_H
 #define EDITMAP_H
 
@@ -15,7 +16,7 @@
 struct real_coords;
 enum field_id : int;
 
-    enum shapetype {
+enum shapetype {
     editmap_rect, editmap_rect_filled, editmap_line, editmap_circle,
 };
 
@@ -112,7 +113,6 @@ class editmap
         int tmaxx;
         int tmaxy;
         bool uberdraw;
-        std::map<oter_id, int> oter_special;
 
         editmap();
         ~editmap();

@@ -5,15 +5,17 @@
 #include "npc.h"
 #include "options.h"
 #include "overmap.h"
+#include "player_activity.h"
 
 #include <unordered_map>
 #include <string>
 #include <sstream>
-#include <fstream>
+#include <vector>
 
 namespace std {
     template <>
     struct hash<talk_topic_enum> {
+        // Operator overload required by std API.
         std::size_t operator()(const talk_topic_enum& k) const {
             return k; // the most trivial hash of them all
         }
@@ -123,13 +125,6 @@ std::string convert_talk_topic( talk_topic_enum const old_value )
  WRAP(TALK_SCAVENGER_MERC_TIPS),
  WRAP(TALK_SCAVENGER_MERC_HIRE),
  WRAP(TALK_SCAVENGER_MERC_HIRE_SUCCESS),
- WRAP(TALK_OLD_GUARD_SOLDIER),
- WRAP(TALK_OLD_GUARD_NEC_CPT),
- WRAP(TALK_OLD_GUARD_NEC_CPT_GOAL),
- WRAP(TALK_OLD_GUARD_NEC_CPT_VAULT),
- WRAP(TALK_OLD_GUARD_NEC_COMMO),
- WRAP(TALK_OLD_GUARD_NEC_COMMO_GOAL),
- WRAP(TALK_OLD_GUARD_NEC_COMMO_FREQ),
  WRAP(TALK_SHELTER),
  WRAP(TALK_SHELTER_PLANS),
  WRAP(TALK_SHARE_EQUIPMENT),
@@ -215,16 +210,16 @@ void item::load_info( const std::string &data )
     dump >> burnt >> poison >> ammotmp >> owned >> bday >>
          mode >> acttmp >> corp >> mission_id >> player_id;
     corpse = NULL;
-    getline(dump, name);
-    if (name == " ''")
-        name = "";
-    else {
-        size_t pos = name.find_first_of("@@");
+    getline(dump, corpse_name);
+    if( corpse_name == " ''" ) {
+        corpse_name = "";
+    } else {
+        size_t pos = corpse_name.find_first_of( "@@" );
         while (pos != std::string::npos)  {
-            name.replace(pos, 2, "\n");
-            pos = name.find_first_of("@@");
+            corpse_name.replace( pos, 2, "\n" );
+            pos = corpse_name.find_first_of( "@@" );
         }
-        name = name.substr(2, name.size() - 3); // s/^ '(.*)'$/\1/
+        corpse_name = corpse_name.substr( 2, corpse_name.size() - 3 ); // s/^ '(.*)'$/\1/
     }
     gun_set_mode( mode );
 
@@ -236,7 +231,7 @@ void item::load_info( const std::string &data )
     convert( idtmp );
 
     invlet = char(lettmp);
-    damage = damtmp;
+    set_damage( damtmp );
     active = false;
     if (acttmp == 1) {
         active = true;
@@ -278,18 +273,18 @@ void overmap::unserialize_legacy(std::istream & fin) {
                                     needs_conversion.emplace( tripoint( p, j, z-OVERMAP_DEPTH ),
                                                               tmp_ter );
                                 }
-                                tmp_otid = 0;
-                            } else if( otermap.count( tmp_ter ) > 0 ) {
-                                tmp_otid = tmp_ter;
+                                tmp_otid = oter_id( 0 );
+                            } else if( oter_str_id( tmp_ter ).is_valid() ) {
+                                tmp_otid = oter_id( tmp_ter );
                             } else if( tmp_ter.compare( 0, 7, "mall_a_" ) == 0 &&
-                                       otermap.count( tmp_ter + "_north" ) > 0 ) {
-                                tmp_otid = tmp_ter + "_north";
+                                       oter_str_id( tmp_ter + "_north" ).is_valid() ) {
+                                tmp_otid = oter_id( tmp_ter + "_north" );
                             } else if( tmp_ter.compare( 0, 13, "necropolis_a_" ) == 0 &&
-                                       otermap.count( tmp_ter + "_north" ) > 0 ) {
-                                tmp_otid = tmp_ter + "_north";
+                                       oter_str_id( tmp_ter + "_north" ).is_valid() ) {
+                                tmp_otid = oter_id( tmp_ter + "_north" );
                             } else {
                                 debugmsg("Loaded bad ter! ter %s", tmp_ter.c_str());
-                                tmp_otid = 0;
+                                tmp_otid = oter_id( 0 );
                             }
                         }
                         count--;
@@ -361,12 +356,12 @@ void overmap::unserialize_legacy(std::istream & fin) {
 //   assignment to an NPC.
 
             if (!npc_inventory.empty() && !npcs.empty()) {
-                npcs.back()->inv.add_stack(npc_inventory);
+                npcs.back()->inv.push_back(npc_inventory);
                 npc_inventory.clear();
             }
             std::string npcdata;
             getline(fin, npcdata);
-            npc * tmp = new npc();
+            std::shared_ptr<npc> tmp = std::make_shared<npc>();
             tmp->load_info(npcdata);
             npcs.push_back(tmp);
         } else if (datatype == 'P') {
@@ -383,7 +378,7 @@ void overmap::unserialize_legacy(std::istream & fin) {
             } else {
                 item tmp;
                 tmp.load_info(itemdata);
-                npc* last = npcs.back();
+                npc* last = npcs.back().get();
                 switch (datatype) {
                 case 'I': npc_inventory.push_back(tmp);                 break;
                 case 'C': npc_inventory.back().contents.push_back(tmp); break;
@@ -409,7 +404,7 @@ void overmap::unserialize_legacy(std::istream & fin) {
                                 // temporary; user changed option, this overmap should remain whatever it was set to.
                                 settings = rit->second; // todo optimize
                             } else { // ruh-roh! user changed option and deleted the .json with this overmap's region. We'll have to become current default. And whine about it.
-                                std::string tmpopt = ACTIVE_WORLD_OPTIONS["DEFAULT_REGION"].getValue();
+                                std::string tmpopt = get_option<std::string>( "DEFAULT_REGION" );
                                 rit = region_settings_map.find( tmpopt );
                                 if ( rit == region_settings_map.end() ) { // ...oy. Hopefully 'default' exists. If not, it's crashtime anyway.
                                     debugmsg("               WARNING: overmap uses missing region settings '%s'                 \n\
@@ -420,7 +415,7 @@ void overmap::unserialize_legacy(std::istream & fin) {
                                 } else {
                                     debugmsg("               WARNING: overmap uses missing region settings '%s', falling back to '%s'                \n",
                                               tmpstr.c_str(), tmpopt.c_str() );
-                                    // fallback means we already loaded ACTIVE_WORLD_OPTIONS["DEFAULT_REGION"]
+                                    // fallback means we already loaded the default region
                                 }
                             }
                         }
@@ -435,7 +430,7 @@ void overmap::unserialize_legacy(std::istream & fin) {
 
 // If we accrued an npc_inventory, assign it now
     if (!npc_inventory.empty() && !npcs.empty()) {
-        npcs.back()->inv.add_stack(npc_inventory);
+        npcs.back()->inv.push_back(npc_inventory);
     }
 }
 
@@ -493,4 +488,63 @@ void overmap::unserialize_view_legacy( std::istream &fin )
             }
         }
     }
+}
+
+// player_activity.h
+void player_activity::deserialize_legacy_type( int legacy_type, activity_id &dest )
+{
+    static const std::vector< activity_id > legacy_map = {
+        activity_id::NULL_ID(),
+        activity_id( "ACT_RELOAD" ),
+        activity_id( "ACT_READ" ),
+        activity_id( "ACT_GAME" ),
+        activity_id( "ACT_WAIT" ),
+        activity_id( "ACT_CRAFT" ),
+        activity_id( "ACT_LONGCRAFT" ),
+        activity_id( "ACT_DISASSEMBLE" ),
+        activity_id( "ACT_BUTCHER" ),
+        activity_id( "ACT_LONGSALVAGE" ),
+        activity_id( "ACT_FORAGE" ),
+        activity_id( "ACT_BUILD" ),
+        activity_id( "ACT_VEHICLE" ),
+        activity_id::NULL_ID(), // ACT_REFILL_VEHICLE is deprecated
+        activity_id( "ACT_TRAIN" ),
+        activity_id( "ACT_WAIT_WEATHER" ),
+        activity_id( "ACT_FIRSTAID" ),
+        activity_id( "ACT_FISH" ),
+        activity_id( "ACT_PICKAXE" ),
+        activity_id( "ACT_BURROW" ),
+        activity_id( "ACT_PULP" ),
+        activity_id( "ACT_VIBE" ),
+        activity_id( "ACT_MAKE_ZLAVE" ),
+        activity_id( "ACT_DROP" ),
+        activity_id( "ACT_STASH" ),
+        activity_id( "ACT_PICKUP" ),
+        activity_id( "ACT_MOVE_ITEMS" ),
+        activity_id( "ACT_ADV_INVENTORY" ),
+        activity_id( "ACT_ARMOR_LAYERS" ),
+        activity_id( "ACT_START_FIRE" ),
+        activity_id( "ACT_OPEN_GATE" ),
+        activity_id( "ACT_FILL_LIQUID" ),
+        activity_id( "ACT_HOTWIRE_CAR" ),
+        activity_id( "ACT_AIM" ),
+        activity_id( "ACT_ATM" ),
+        activity_id( "ACT_START_ENGINES" ),
+        activity_id( "ACT_OXYTORCH" ),
+        activity_id( "ACT_CRACKING" ),
+        activity_id( "ACT_REPAIR_ITEM" ),
+        activity_id( "ACT_MEND_ITEM" ),
+        activity_id( "ACT_GUNMOD_ADD" ),
+        activity_id( "ACT_WAIT_NPC" ),
+        activity_id( "ACT_CLEAR_RUBBLE" ),
+        activity_id( "ACT_MEDITATE" ),
+        activity_id::NULL_ID() // NUM_ACTIVITIES
+    };
+
+    if( legacy_type < 0 || ( size_t )legacy_type >= legacy_map.size() ) {
+        debugmsg( "Bad legacy activity data. Got %d, exected something from 0 to %d", legacy_type, legacy_map.size() );
+        dest = activity_id::NULL_ID();
+        return;
+    }
+    dest = legacy_map[ legacy_type ];
 }

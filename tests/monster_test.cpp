@@ -9,49 +9,18 @@
 #include "mtype.h"
 #include "options.h"
 #include "player.h"
+#include "vehicle.h"
+
+#include "map_helpers.h"
+#include "test_statistics.h"
 
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
 
-std::ostream& operator << ( std::ostream& os, tripoint const& value ) {
-    os << "(" << value.x << "," << value.y << "," << value.z << ")";
-    return os;
-}
-
-static void wipe_map_terrain()
-{
-    // Remove all the obstacles.
-    const int mapsize = g->m.getmapsize() * SEEX;
-    for( int x = 0; x < mapsize; ++x ) {
-        for( int y = 0; y < mapsize; ++y ) {
-            g->m.set(x, y, t_grass, f_null);
-        }
-    }
-}
-
-static void clear_map()
-{
-    wipe_map_terrain();
-    // Remove any interfering monsters.
-    while( g->num_zombies() ) {
-        g->remove_zombie( 0 );
-    }
-    // Make sure the player doesn't block the path of the monster being tested.
-    g->u.setpos( { 0, 0, -2 } );
-}
-
-static monster &spawn_test_monster( const std::string &monster_type, const tripoint &start )
-{
-    monster temp_monster( mtype_id(monster_type), start);
-    // Bypassing game::add_zombie() since it sometimes upgrades the monster instantly.
-    g->critter_tracker->add( temp_monster );
-    return g->critter_tracker->find( 0 );
-}
-
 static int moves_to_destination( const std::string &monster_type,
-                          const tripoint &start, const tripoint &end )
+                                 const tripoint &start, const tripoint &end )
 {
     REQUIRE( g->num_zombies() == 0 );
     monster &test_monster = spawn_test_monster( monster_type, start );
@@ -64,16 +33,17 @@ static int moves_to_destination( const std::string &monster_type,
     for( int turn = 0; turn < 1000; ++turn ) {
         test_monster.mod_moves( monster_speed );
         while( test_monster.moves >= 0 ) {
+            test_monster.anger = 100;
             int moves_before = test_monster.moves;
             test_monster.move();
             moves_spent += moves_before - test_monster.moves;
             if( test_monster.pos() == test_monster.move_target() ) {
-                g->remove_zombie( 0 );
+                g->remove_zombie( g->zombie( 0 ) );
                 return moves_spent;
             }
         }
     }
-    g->remove_zombie( 0 );
+    g->remove_zombie( g->zombie( 0 ) );
     // Return an unreasonably high number.
     return 100000;
 }
@@ -136,13 +106,13 @@ static int can_catch_player( const std::string &monster_type, const tripoint &di
                 test_player.pos().y < SEEY * int(MAPSIZE / 2) ||
                 test_player.pos().x >= SEEX * (1 + int(MAPSIZE / 2)) ||
                 test_player.pos().y >= SEEY * (1 + int(MAPSIZE / 2)) ) {
-                g->update_map( &test_player );
+                g->update_map( test_player );
                 wipe_map_terrain();
                 for( unsigned int i = 0; i < g->num_zombies(); ) {
                     if( &g->zombie( i ) == &test_monster ) {
                         i++;
                     } else {
-                        g->remove_zombie( i );
+                        g->remove_zombie( g->zombie( i ) );
                     }
                 }
             }
@@ -177,44 +147,13 @@ static int can_catch_player( const std::string &monster_type, const tripoint &di
     return -1000;
 }
 
-class statistics {
-private:
-    int _types;
-    int _n;
-    int _sum;
-    int _max;
-    int _min;
-    std::vector<int> samples;
-
-public:
-    statistics() : _types(0), _n(0), _sum(0), _max(INT_MIN), _min(INT_MAX) {}
-
-    void new_type() {
-        _types++;
-    }
-    void add( int new_val ) {
-        _n++;
-        _sum += new_val;
-        _max = std::max(_max, new_val);
-        _min = std::min(_min, new_val);
-        samples.push_back(new_val);
-    }
-    int types() const { return _types; }
-    int sum() const { return _sum; }
-    int max() const { return _max; }
-    int min() const { return _min; }
-    float avg() const { return (float)_sum / (float)_n; }
-    int n() const { return _n; }
-    std::vector<int> get_samples() { return samples; }
-};
-
 // Verify that the named monster has the expected effective speed, not reduced
 // due to wasted motion from shambling.
 static void check_shamble_speed( const std::string monster_type, const tripoint &destination )
 {
     // Scale the scaling factor based on the ratio of diagonal to cardinal steps.
     const float slope = get_normalized_angle( {0, 0}, {destination.x, destination.y} );
-    const float diagonal_multiplier = 1.0 + (OPTIONS["CIRCLEDIST"] ? (slope * 0.41) : 0.0);
+    const float diagonal_multiplier = 1.0 + (get_option<bool>( "CIRCLEDIST" ) ? (slope * 0.41) : 0.0);
     INFO( monster_type << " " << destination );
     // Wandering makes things nondeterministic, so look at the distribution rather than a target number.
     statistics move_stats;
@@ -258,7 +197,7 @@ static void test_moves_to_squares( std::string monster_type, bool write_data = f
                 }
                 // Scale the scaling factor based on the ratio of diagonal to cardinal steps.
                 const float slope = get_normalized_angle( {50, 50}, {x, y} );
-                const float diagonal_multiplier = 1.0 + (OPTIONS["CIRCLEDIST"] ? (slope * 0.41) : 0.0);
+                const float diagonal_multiplier = 1.0 + (get_option<bool>( "CIRCLEDIST" ) ? (slope * 0.41) : 0.0);
                 turns_at_angle[angle * 100].new_type();
                 turns_at_slope[slope].new_type();
                 for( int i = 0; i < 5; ++i ) {
@@ -281,7 +220,7 @@ static void test_moves_to_squares( std::string monster_type, bool write_data = f
     for( const auto &stat_pair : turns_at_slope ) {
         INFO( "Monster:" << monster_type << " Slope: " << stat_pair.first <<
               " moves: " << stat_pair.second.avg() << " types: " << stat_pair.second.types() );
-        CHECK( stat_pair.second.avg() == Approx(100.0).epsilon(0.03) );
+        CHECK( stat_pair.second.avg() == Approx(100.0).epsilon(0.1) );
     }
     for( auto &stat_pair : turns_at_angle ) {
         std::stringstream sample_string;
@@ -291,7 +230,7 @@ static void test_moves_to_squares( std::string monster_type, bool write_data = f
         INFO( "Monster:" << monster_type << " Angle: " << stat_pair.first <<
               " moves: " << stat_pair.second.avg() << " types: " << stat_pair.second.types() <<
               " samples: " << sample_string.str() );
-        CHECK( stat_pair.second.avg() == Approx(100.0).epsilon(0.05) );
+        CHECK( stat_pair.second.avg() == Approx(100.0).epsilon(0.1) );
     }
 
     if( write_data ) {
@@ -305,14 +244,14 @@ static void test_moves_to_squares( std::string monster_type, bool write_data = f
 }
 
 static void monster_check() {
-    const float diagonal_multiplier = (OPTIONS["CIRCLEDIST"] ? 1.41 : 1.0);
+    const float diagonal_multiplier = (get_option<bool>( "CIRCLEDIST" ) ? 1.41 : 1.0);
     // Have a monster walk some distance in a direction and measure how long it takes.
     float vert_move = moves_to_destination( "mon_pig", {0,0,0}, {100,0,0} );
     CHECK( (vert_move / 10000.0) == Approx(1.0) );
     int horiz_move = moves_to_destination( "mon_pig", {0,0,0}, {0,100,0} );
     CHECK( (horiz_move / 10000.0) == Approx(1.0) );
     int diag_move = moves_to_destination( "mon_pig", {0,0,0}, {100,100,0} );
-    CHECK( (diag_move / (10000.0 * diagonal_multiplier)) == Approx(1.0).epsilon(0.01) );
+    CHECK( (diag_move / (10000.0 * diagonal_multiplier)) == Approx(1.0).epsilon(0.05) );
 
     check_shamble_speed( "mon_pig", {100, 0, 0} );
     check_shamble_speed( "mon_pig", {0, 100, 0} );
@@ -335,7 +274,7 @@ static void monster_check() {
     test_moves_to_squares("mon_pig");
 
     // Verify that a walking player can escape from a zombie, but is caught by a zombie dog.
-    INFO( "Trigdist is " << ( OPTIONS["CIRCLEDIST"] ? "on" : "off" ) );
+    INFO( "Trigdist is " << ( get_option<bool>( "CIRCLEDIST" ) ? "on" : "off" ) );
     CHECK( can_catch_player( "mon_zombie", {1,0,0} ) < 0  );
     CHECK( can_catch_player( "mon_zombie", {1,1,0} ) < 0  );
     CHECK( can_catch_player( "mon_zombie_dog", {1,0,0} ) > 0  );
@@ -345,7 +284,7 @@ static void monster_check() {
 // Write out a map of slope at which monster is moving to time required to reach their destination.
 TEST_CASE("write_slope_to_speed_map_trig", "[.]") {
     clear_map();
-    OPTIONS["CIRCLEDIST"].setValue("true");
+    get_options().get_option( "CIRCLEDIST" ).setValue("true");
     trigdist = true;
     test_moves_to_squares("mon_zombie_dog", true);
     test_moves_to_squares("mon_pig", true);
@@ -353,7 +292,7 @@ TEST_CASE("write_slope_to_speed_map_trig", "[.]") {
 
 TEST_CASE("write_slope_to_speed_map_square", "[.]") {
     clear_map();
-    OPTIONS["CIRCLEDIST"].setValue("false");
+    get_options().get_option( "CIRCLEDIST" ).setValue("false");
     trigdist = false;
     test_moves_to_squares("mon_zombie_dog", true);
     test_moves_to_squares("mon_pig", true);
@@ -361,16 +300,16 @@ TEST_CASE("write_slope_to_speed_map_square", "[.]") {
 
 // Characterization test for monster movement speed.
 // It's not necessarally the one true speed for monsters, we just want notice if it changes.
-TEST_CASE("monster_speed_square") {
+TEST_CASE("monster_speed_square", "[speed]") {
     clear_map();
-    OPTIONS["CIRCLEDIST"].setValue("false");
+    get_options().get_option( "CIRCLEDIST" ).setValue("false");
     trigdist = false;
     monster_check();
 }
 
-TEST_CASE("monster_speed_trig") {
+TEST_CASE("monster_speed_trig", "[speed]") {
     clear_map();
-    OPTIONS["CIRCLEDIST"].setValue("true");
+    get_options().get_option( "CIRCLEDIST" ).setValue("true");
     trigdist = true;
     monster_check();
 }

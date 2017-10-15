@@ -54,11 +54,6 @@ TEST_CASE( "visitable_remove", "[visitable]" ) {
         p.setpos( random_entry( closest_tripoints_first( 1, p.pos() ) ) );
     }
 
-    auto tiles = closest_tripoints_first( 1, p.pos() );
-    tiles.erase( tiles.begin() ); // player tile
-    tripoint veh = random_entry( tiles );
-    REQUIRE( g->m.add_vehicle( vproto_id( "shopping_cart" ), veh, 0 ) );
-
     item temp_liquid( liquid_id );
     item obj = temp_liquid.in_container( temp_liquid.type->default_container );
     REQUIRE( obj.contents.size() == 1 );
@@ -200,7 +195,7 @@ TEST_CASE( "visitable_remove", "[visitable]" ) {
 
         WHEN( "a hip flask containing water is worn" ) {
             item obj( worn_id );
-            obj.emplace_back( liquid_id, calendar::turn, obj.type->container->contains );
+            obj.emplace_back( liquid_id, calendar::turn, temp_liquid.charges_per_volume( obj.get_container_capacity() ) );
             p.wear_item( obj );
 
             REQUIRE( count_items( p, container_id ) == count );
@@ -393,6 +388,10 @@ TEST_CASE( "visitable_remove", "[visitable]" ) {
 
     GIVEN( "An adjacent vehicle contains several bottles of water" ) {
         auto tiles = closest_tripoints_first( 1, p.pos() );
+        tiles.erase( tiles.begin() ); // player tile
+        tripoint veh = random_entry( tiles );
+        REQUIRE( g->m.add_vehicle( vproto_id( "shopping_cart" ), veh, 0, 0, 0 ) );
+
         REQUIRE( std::count_if( tiles.begin(), tiles.end(), []( const tripoint& e ) {
             return g->m.veh_at( e );
         } ) == 1 );
@@ -403,6 +402,10 @@ TEST_CASE( "visitable_remove", "[visitable]" ) {
         REQUIRE( part >= 0 );
         part = v->part_with_feature( part, "CARGO" );
         REQUIRE( part >= 0 );
+        // Empty the vehicle of any cargo.
+        while( !v->get_items( part ).empty() ) {
+            v->remove_item( part, 0 );
+        }
         for( int i = 0; i != count; ++i ) {
             v->add_item( part, obj );
         }

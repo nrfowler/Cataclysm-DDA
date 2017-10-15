@@ -1,3 +1,4 @@
+#pragma once
 #ifndef MATERIALS_H
 #define MATERIALS_H
 
@@ -38,7 +39,7 @@ class material_type
 
         std::string _bash_dmg_verb;
         std::string _cut_dmg_verb;
-        std::string _dmg_adj[MAX_ITEM_DAMAGE];
+        std::vector<std::string> _dmg_adj;
 
         std::map<vitamin_id, double> _vitamins;
 
@@ -47,7 +48,7 @@ class material_type
     public:
         material_type();
 
-        void load( JsonObject &jo );
+        void load( JsonObject &jo, const std::string &src );
         void check() const;
 
         int dam_resist( damage_type damtype ) const;
@@ -80,7 +81,7 @@ class material_type
 namespace materials
 {
 
-void load( JsonObject &jo );
+void load( JsonObject &jo, const std::string &src );
 void check();
 void reset();
 

@@ -1,3 +1,4 @@
+#pragma once
 #ifndef FIELD_H
 #define FIELD_H
 
@@ -8,6 +9,7 @@
 #include <string>
 #include <map>
 #include <iosfwd>
+#include <array>
 
 enum phase_id : int;
 
@@ -22,13 +24,15 @@ struct field_t {
     std::string id;
 
      /** Display name for field at given density (eg. light smoke, smoke, heavy smoke) */
-     std::string name[ MAX_FIELD_DENSITY ];
+    std::string untranslated_name[ MAX_FIELD_DENSITY ];
+    /// Can be empty! \p density must be in the range [0, MAX_FIELD_DENSITY - 1].
+    std::string name( int density ) const;
 
  char sym; //The symbol to draw for this field. Note that some are reserved like * and %. You will have to check the draw function for specifics.
  int priority; //Inferior numbers have lower priority. 0 is "ground" (splatter), 2 is "on the ground", 4 is "above the ground" (fire), 6 is reserved for furniture, and 8 is "in the air" (smoke).
 
      /** Color the field will be drawn as on the screen at a given density */
-     nc_color color[ MAX_FIELD_DENSITY ];
+     deferred_color color[ MAX_FIELD_DENSITY ];
 
      /**
       * If false this field may block line of sight.
@@ -48,6 +52,9 @@ struct field_t {
 
     /** Does it penetrate obstacles like gas, spread like liquid or just lie there like solid? */
     phase_id phase;
+
+    /** Should it decay with out-of-bubble time too? */
+    bool accelerated_decay;
 };
 
 //The master list of id's for a field, corresponding to the fieldlist array.
@@ -104,7 +111,7 @@ enum field_id : int {
 /*
 Controls the master listing of all possible field effects, indexed by a field_id. Does not store active fields, just metadata.
 */
-extern field_t fieldlist[num_fields];
+extern const std::array<field_t, num_fields> fieldlist;
 /**
  * Returns the field_id of the field whose ident (field::id) matches the given ident.
  * Returns fd_null (and prints a debug message!) if the field ident is unknown.
@@ -137,6 +144,10 @@ public:
         is_alive = true;
     }
 
+    nc_color color() const;
+
+    char symbol() const;
+
     //returns the move cost of this field
     int move_cost() const;
 
@@ -160,6 +171,11 @@ public:
     //Allows you to modify the age of the current field entry.
     int setFieldAge(const int new_age);
 
+    /** Adds a number to current age. */
+    int mod_age( int mod ) {
+        return setFieldAge( getFieldAge() + mod );
+    }
+
     //Returns if the current field is dangerous or not.
     bool is_dangerous() const
     {
@@ -170,12 +186,17 @@ public:
     //IE: light smoke, smoke, heavy smoke
     std::string name() const
     {
-        return fieldlist[type].name[density - 1];
+        return fieldlist[type].name( density - 1 );
     }
 
     //Returns true if this is an active field, false if it should be removed.
     bool isAlive(){
         return is_alive;
+    }
+
+    bool decays_on_actualize() const
+    {
+        return fieldlist[type].accelerated_decay;
     }
 
 private:

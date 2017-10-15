@@ -1,3 +1,4 @@
+#pragma once
 #ifndef NPC_CLASS_H
 #define NPC_CLASS_H
 
@@ -17,6 +18,9 @@ using npc_class_id = string_id<npc_class>;
 class Skill;
 using skill_id = string_id<Skill>;
 
+struct mutation_branch;
+using trait_id = string_id<mutation_branch>;
+
 typedef std::string Group_tag;
 
 // @todo Move to better suited file (rng.h/.cpp?)
@@ -33,6 +37,7 @@ class distribution
 
         distribution operator+( const distribution &other ) const;
         distribution operator*( const distribution &other ) const;
+        distribution &operator=( const distribution &other );
 
         static distribution constant( float val );
         static distribution rng_roll( int from, int to );
@@ -61,7 +66,13 @@ class npc_class
 
     public:
         npc_class_id id;
-        bool was_loaded;
+        bool was_loaded = false;
+
+        Group_tag worn_override;
+        Group_tag carry_override;
+        Group_tag weapon_override;
+
+        std::map<trait_id, int> traits;
 
         npc_class();
 
@@ -77,13 +88,13 @@ class npc_class
 
         const Group_tag &get_shopkeeper_items() const;
 
-        void load( JsonObject &jo );
+        void load( JsonObject &jo, const std::string &src );
 
         static const npc_class_id &from_legacy_int( int i );
 
         static const npc_class_id &random_common();
 
-        static void load_npc_class( JsonObject &jo );
+        static void load_npc_class( JsonObject &jo, const std::string &src );
 
         static const std::vector<npc_class> &get_all();
 

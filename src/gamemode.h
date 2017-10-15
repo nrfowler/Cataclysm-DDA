@@ -1,3 +1,4 @@
+#pragma once
 #ifndef GAMEMODE_H
 #define GAMEMODE_H
 
@@ -14,8 +15,8 @@ struct special_game;
 struct mtype;
 using mtype_id = string_id<mtype>;
 
-std::string special_game_name(special_game_id id);
-std::unique_ptr<special_game> get_special_game(special_game_id id);
+std::string special_game_name( special_game_id id );
+std::unique_ptr<special_game> get_special_game( special_game_id id );
 
 struct special_game {
     virtual ~special_game() {
@@ -141,7 +142,6 @@ struct defense_game : public special_game {
         void refresh_setup( WINDOW *w, int selection );
         void init_mtypes();
         void init_constructions();
-        void init_recipes();
         void init_map();
         std::vector<itype_id> carvan_items( caravan_category cat );
 

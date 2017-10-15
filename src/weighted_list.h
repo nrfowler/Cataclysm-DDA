@@ -1,3 +1,4 @@
+#pragma once
 #ifndef WEIGHTED_LIST_H
 #define WEIGHTED_LIST_H
 
@@ -145,6 +146,12 @@ template <typename W, typename T> struct weighted_list {
             return objects.begin();
         }
         typename std::vector<weighted_object<W, T> >::iterator end() {
+            return objects.end();
+        }
+        typename std::vector<weighted_object<W, T> >::const_iterator begin() const {
+            return objects.begin();
+        }
+        typename std::vector<weighted_object<W, T> >::const_iterator end() const {
             return objects.end();
         }
         typename std::vector<weighted_object<W, T> >::iterator erase(

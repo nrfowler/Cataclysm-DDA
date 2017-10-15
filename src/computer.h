@@ -1,16 +1,18 @@
+#pragma once
 #ifndef COMPUTER_H
 #define COMPUTER_H
 
 #include "cursesdef.h" // WINDOW
+#include "printf_check.h"
 #include <vector>
 #include <string>
-
-#define DEFAULT_COMPUTER_NAME ""
 
 class game;
 class player;
 class JsonObject;
 
+// Don't change those! They must stay in this specific order!
+// @todo Remove this enum
 enum computer_action {
     COMPACT_NULL = 0,
     COMPACT_OPEN,
@@ -55,7 +57,9 @@ enum computer_action {
     NUM_COMPUTER_ACTIONS
 };
 
-enum computer_failure {
+// Don't change those! They must stay in this specific order!
+// @todo Remove this enum
+enum computer_failure_type {
     COMPFAIL_NULL = 0,
     COMPFAIL_SHUTDOWN,
     COMPFAIL_ALARM,
@@ -70,6 +74,10 @@ enum computer_failure {
     NUM_COMPUTER_FAILURES
 };
 
+// @todo Turn the enum into id, get rid of this
+computer_action computer_action_from_string( const std::string &str );
+computer_failure_type computer_failure_type_from_string( const std::string &str );
+
 struct computer_option {
     std::string name;
     computer_action action;
@@ -80,20 +88,32 @@ struct computer_option {
     };
     computer_option( std::string N, computer_action A, int S ) :
         name( N ), action( A ), security( S ) {};
+
+    static computer_option from_json( JsonObject &jo );
+};
+
+struct computer_failure {
+    computer_failure_type type;
+
+    computer_failure( computer_failure_type t ) : type( t ) {
+    }
+
+    static computer_failure from_json( JsonObject &jo );
 };
 
 class computer
 {
     public:
-        computer();
-        computer( std::string Name, int Security );
+        computer( const std::string &name, int Security );
         ~computer();
 
         computer &operator=( const computer &rhs );
         // Initialization
         void set_security( int Security );
-        void add_option( std::string opt_name, computer_action action, int Security );
-        void add_failure( computer_failure failure );
+        void add_option( const computer_option &opt );
+        void add_option( std::string opt_name, computer_action action, int security );
+        void add_failure( const computer_failure &failure );
+        void add_failure( computer_failure_type failure );
         // Basic usage
         /** Shutdown (free w_terminal, etc.) */
         void shutdown_terminal();
@@ -130,28 +150,30 @@ class computer
         // Generally called when we fail a hack attempt
         void activate_random_failure();
         // ...but we can also choose a specific failure.
-        void activate_failure( computer_failure fail );
+        void activate_failure( computer_failure_type fail );
 
         void remove_option( computer_action action );
+
+        void mark_refugee_center();
 
         // OUTPUT/INPUT:
 
         // Reset to a blank terminal (e.g. at start of usage loop)
         void reset_terminal();
         // Prints a line to the terminal (with printf flags)
-        void print_line( const char *text, ... );
+        void print_line( const char *text, ... ) PRINTF_LIKE( 2, 3 );
         // For now, the same as print_line but in red (TODO: change this?)
-        void print_error( const char *text, ... );
+        void print_error( const char *text, ... ) PRINTF_LIKE( 2, 3 );
         // Wraps and prints a block of text with a 1-space indent
-        void print_text( const char *text, ... );
+        void print_text( const char *text, ... ) PRINTF_LIKE( 2, 3 );
         // Prints code-looking gibberish
         void print_gibberish_line();
         // Prints a line and waits for Y/N/Q
-        char query_ynq( const char *text, ... );
+        char query_ynq( const char *text, ... ) PRINTF_LIKE( 2, 3 );
         // Same as query_ynq, but returns true for y or Y
-        bool query_bool( const char *text, ... );
+        bool query_bool( const char *text, ... ) PRINTF_LIKE( 2, 3 );
         // Simply wait for any key, returns True
-        bool query_any( const char *text, ... );
+        bool query_any( const char *text, ... ) PRINTF_LIKE( 2, 3 );
         // Move the cursor to the beginning of the next line
         void print_newline();
 };

@@ -1,3 +1,4 @@
+#pragma once
 #ifndef SKILL_H
 #define SKILL_H
 
@@ -21,15 +22,16 @@ class Skill
         std::string _name;
         std::string _description;
         std::set<std::string> _tags;
-
+        // these are not real skills, they depend on context
+        static std::map<skill_id, Skill> contextual_skills;
     public:
         static std::vector<Skill> skills;
         static void load_skill( JsonObject &jsobj );
         // For loading old saves that still have integer-based ids.
         static skill_id from_legacy_int( int legacy_id );
-
-        static skill_id random_skill_with_tag( const std::string &tag );
         static skill_id random_skill();
+
+        static const Skill &get( const skill_id &id );
 
         static size_t skill_count();
         // clear skill vector, every skill pointer becames invalid!
@@ -64,6 +66,7 @@ class Skill
         }
 
         bool is_combat_skill() const;
+        bool is_contextual_skill() const;
 };
 
 class SkillLevel : public JsonSerializer, public JsonDeserializer
@@ -72,11 +75,13 @@ class SkillLevel : public JsonSerializer, public JsonDeserializer
         int _exercise;
         calendar _lastPracticed;
         bool _isTraining;
+        int _highestLevel;
 
     public:
-        SkillLevel( int level = 0, int exercise = 0, bool isTraining = true, int lastPracticed = 0 );
-        SkillLevel( int minLevel, int maxLevel, int minExercise, int maxExercise,
-                    bool isTraining = true, int lastPracticed = 0 );
+        SkillLevel( int level = 0, int exercise = 0, bool isTraining = true, int lastPracticed = 0,
+                    int highestLevel = 0 );
+        SkillLevel( int minLevel, int maxLevel, int minExercise, int maxExercise, bool isTraining,
+                    int lastPracticed, int highestLevel );
 
         bool isTraining() const {
             return _isTraining;
@@ -91,7 +96,14 @@ class SkillLevel : public JsonSerializer, public JsonDeserializer
         }
         int level( int plevel ) {
             _level = plevel;
+            if( _level > _highestLevel ) {
+                _highestLevel = _level;
+            }
             return plevel;
+        }
+
+        int highestLevel() const {
+            return _highestLevel;
         }
 
         int exercise( bool raw = false ) const {

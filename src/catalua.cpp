@@ -1,6 +1,5 @@
 #include "catalua.h"
 
-#include <sys/stat.h>
 #include <memory>
 
 #include "game.h"
@@ -30,6 +29,9 @@
 #include "overmap.h"
 #include "mtype.h"
 #include "field.h"
+#include "filesystem.h"
+#include "string_input_popup.h"
+#include "mutation.h"
 extern "C" {
 #include "lua.h"
 #include "lualib.h"
@@ -43,6 +45,9 @@ extern "C" {
 #endif
 
 using item_stack_iterator = std::list<item>::iterator;
+using volume = units::volume;
+using mass = units::mass;
+using npc_template_id = string_id<npc_template>;
 
 lua_State *lua_state = nullptr;
 
@@ -512,8 +517,7 @@ public:
         T* operator &() { return ref; }
     };
     /** Same as calling @ref get, but returns a @ref proxy containing the reference. */
-    static proxy get( lua_State* const L, int const stack_position )
-    {
+    static proxy get( lua_State* const L, int const stack_position ) {
         return proxy{ &LuaValue<T*>::get( L, stack_position ) };
     }
     using LuaValue<T*>::has;
@@ -752,7 +756,7 @@ private:
 public:
     lua_iuse_wrapper( const int f, const std::string &type ) : iuse_actor( type ), lua_function( f ) {}
     ~lua_iuse_wrapper() override = default;
-    long use( player *, item *it, bool a, const tripoint &pos ) const override {
+    long use( player &, item &it, bool a, const tripoint &pos ) const override {
         // We'll be using lua_state a lot!
         lua_State * const L = lua_state;
 
@@ -823,7 +827,7 @@ void lua_callback(const char *callback_name)
 }
 
 //
-int lua_mapgen(map *m, std::string terrain_type, mapgendata, int t, float, const std::string &scr)
+int lua_mapgen(map *m, const oter_id &terrain_type, const mapgendata &, int t, float, const std::string &scr)
 {
     if( lua_state == nullptr ) {
         return 0;
@@ -839,7 +843,7 @@ int lua_mapgen(map *m, std::string terrain_type, mapgendata, int t, float, const
     //    int function_index = luaL_ref(L, LUA_REGISTRYINDEX); // todo; make use of this
     //    lua_rawgeti(L, LUA_REGISTRYINDEX, function_index);
 
-    lua_pushstring(L, terrain_type.c_str());
+    lua_pushstring(L, terrain_type.id().c_str());
     lua_setglobal(L, "tertype");
     lua_pushinteger(L, t);
     lua_setglobal(L, "turn");
@@ -870,6 +874,10 @@ static calendar &get_calendar_turn_wrapper() {
     return calendar::turn;
 }
 
+static std::string string_input_popup_wrapper(std::string title, int width, std::string desc) {
+    return string_input_popup().title(title).width(width).description(desc).query_string();
+}
+
 /** Create a new monster of the given type. */
 monster *create_monster( const mtype_id &mon_type, const tripoint &p )
 {
@@ -877,7 +885,7 @@ monster *create_monster( const mtype_id &mon_type, const tripoint &p )
     if(!g->add_zombie(new_monster)) {
         return NULL;
     } else {
-        return &(g->zombie(g->mon_at( p )));
+        return g->critter_at<monster>( p );
     }
 }
 
@@ -1045,11 +1053,7 @@ static int game_register_iuse(lua_State *L)
 void lua_loadmod(std::string base_path, std::string main_file_name)
 {
     std::string full_path = base_path + "/" + main_file_name;
-
-    // Check if file exists first
-    struct stat buffer;
-    int file_exists = stat(full_path.c_str(), &buffer) == 0;
-    if(file_exists) {
+    if( file_exist( full_path ) ) {
         lua_file_path = base_path;
         lua_dofile( lua_state, full_path.c_str() );
         lua_file_path = "";
@@ -1205,15 +1209,15 @@ void use_function::dump_info( const item &it, std::vector<iteminfo> &dump ) cons
     }
 }
 
-long use_function::call( player *player_instance, item *item_instance, bool active, const tripoint &pos ) const
+long use_function::call( player &p, item &it, bool active, const tripoint &pos ) const
 {
-    if( !actor ) {
-        if (player_instance != NULL && player_instance->is_player()) {
-            add_msg(_("You can't do anything interesting with your %s."), item_instance->tname().c_str());
+    if( actor == nullptr ) {
+        if( p.is_player() ) {
+            add_msg(_("You can't do anything interesting with your %s."), it.tname().c_str());
         }
         return 0;
     }
-    return actor->use(player_instance, item_instance, active, pos);
+    return actor->use( p, it, active, pos );
 }
 
 #ifndef LUA
